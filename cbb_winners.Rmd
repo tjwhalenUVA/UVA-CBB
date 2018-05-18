@@ -7,7 +7,8 @@ output:
     df_print: kable
     highlight: zenburn
     theme: yeti
-    toc: yes
+    toc: yes 
+    toc_float: yes
 ---
 
 ```{r setup, include=FALSE}
@@ -41,35 +42,46 @@ dataFolder <- paste(getwd(), '/data', sep='')
 dataFiles <- list.files(dataFolder)
 ```
 
-```{r}
-#Initiate Cluster
-cl <- makeCluster(detectCores()-2)
-```
+I then initiate a cluster using the CPU nodes on my machine.
+I subtract 1 from the total number of CPU nodes to avoid accidentally maxing out my processing power when other applications are running.
 
 ```{r}
-#Give each core a connection to the database
+cl <- makeCluster(detectCores()-1)
+```
+
+When running a process in parallel you must ensure each node running the process has all the resources it needs.
+The code below loads the package for reading the data as well as the list of file names to read in.
+I honestly do not know why the NULL is passed to each node.
+I think this is printed out and ensures the right number of nodes are running in the cluster.
+
+```{r, results='hide'}
 clusterEvalQ(cl, {
-    suppressMessages(library(readr))
+    library(readr)
     dataFolder <- paste(getwd(), '/data', sep='')
     dataFiles <- list.files(dataFolder)
     NULL
 })
 ```
 
+Next I must build a function that will then run on each node.
+The function in this case is a simple read in of a csv file from a list of file names.
+
 ```{r}
-#Function for querying the database
 readFiles <- function(fileName) {
     read.csv(file=paste(dataFolder, fileName, sep="/"))
 }
 ```
 
+Using the function `parSapply` I can pass the inputs and function into the cluster and the R code for the `parSapply` function takes care of scheduling the nodes and what files they will read in.
+The results (data frames) will be stores in the list `cbb`.
+
 ```{r}
-#Read all tables into result
 cbb <- parSapply(cl, dataFiles, readFiles)
 ```
 
+After the job completes I make sure to shut the cluster down in order to avoid future issues with the CPU.
+
 ```{r}
-#shut down cluster
 stopCluster(cl)
 ```
 
