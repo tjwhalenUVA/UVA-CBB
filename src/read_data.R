@@ -1,3 +1,6 @@
+dataFolder <- paste(getwd(), '/data', sep='')
+dataFiles <- list.files(dataFolder)
+
 #Initiate Cluster
 cl <- makeCluster(detectCores()-2)
 #Give each core a connection to the database
