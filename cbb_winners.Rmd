@@ -1,0 +1,79 @@
+---
+title: "Predicting CBB Winners"
+author: "Jake Whalen"
+date: "May 17, 2018"
+output: 
+  html_document: 
+    df_print: kable
+    highlight: zenburn
+    theme: yeti
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include=FALSE}
+library(tidyverse)
+library(magrittr)
+library(readr)
+library(parallel)
+```
+
+# Motivation
+
+I love college basketball.
+Specifically UVA basketball.
+Go HOOS!
+
+# Data
+
+Thank you to the Kaggle March Madness competitions.
+Pulled all the data just prior to the tournament in 2018.
+
+## Parallel Read
+
+First I gathered the list of file names stored in the data folder in this repository.
+
+```{r}
+dataFolder <- paste(getwd(), '/data', sep='')
+dataFiles <- list.files(dataFolder)
+```
+
+```{r}
+#Initiate Cluster
+cl <- makeCluster(detectCores()-2)
+```
+
+```{r}
+#Give each core a connection to the database
+clusterEvalQ(cl, {
+    suppressMessages(library(readr))
+    dataFolder <- paste(getwd(), '/data', sep='')
+    dataFiles <- list.files(dataFolder)
+    NULL
+})
+```
+
+```{r}
+#Function for querying the database
+readFiles <- function(fileName) {
+    read.csv(file=paste(dataFolder, fileName, sep="/"))
+}
+```
+
+```{r}
+#Read all tables into result
+cbb <- parSapply(cl, dataFiles, readFiles)
+```
+
+```{r}
+#shut down cluster
+stopCluster(cl)
+```
+
+
+# Path Forward
+
+
