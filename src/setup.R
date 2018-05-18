@@ -1,4 +1,4 @@
-suppressMessages(library(tidyverse))
-suppressMessages(library(magrittr))
-suppressMessages(library(readr))
-suppressMessages(library(parallel))
+library(tidyverse)
+library(magrittr)
+library(readr)
+library(parallel)
