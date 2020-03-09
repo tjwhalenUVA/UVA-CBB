@@ -8,6 +8,9 @@ df.19 <- read.csv(file.path(data.folder, 'MEvents2019.csv'))
 df.plyr <- read.csv(file.path(data.folder, 'MPlayers.csv'))
 df.tms <- read.csv(file.path(data.folder, 'MDataFiles_Stage1', 'MTeams.csv'))
 
+#Remove NCAAT games from dataframe so they don't 
+df.19 %>% 
+    filter(DayNum < 134)
 #Individual vs Distributed Scoring----
 #Create a DF of player event counts
 df.plyr.evnt <-
@@ -48,7 +51,7 @@ df.plyr.cntr %>%
     theme_classic()
 
 
-
+df.tms %>% filter(TeamID %in% c(1438, 1120))
 
 df.plyr.cntr %>% 
     group_by(DayNum, TeamID, Result, contr.bin.m) %>% 
