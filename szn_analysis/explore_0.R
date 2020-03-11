@@ -9,8 +9,9 @@ df.plyr <- read.csv(file.path(data.folder, 'MPlayers.csv'))
 df.tms <- read.csv(file.path(data.folder, 'MDataFiles_Stage1', 'MTeams.csv'))
 
 #Remove NCAAT games from dataframe so they don't 
-df.19 %>% 
+df.19 %<>% 
     filter(DayNum < 134)
+
 #Individual vs Distributed Scoring----
 #Create a DF of player event counts
 df.plyr.evnt <-
@@ -50,15 +51,39 @@ df.plyr.cntr %>%
          x = 'No. Players Scored', y = 'Games') +
     theme_classic()
 
-
-df.tms %>% filter(TeamID %in% c(1438, 1120))
+#Teams with 50% of scoring coming from <= 2 players
+df.plyr.cntr %>% 
+    group_by(DayNum, TeamID, TeamScore, Result) %>%
+    mutate(rank = rank(desc(Contribution))) %>%
+    filter(rank %in% c(1:2)) %>% 
+    summarise(TwoPlayerContr = sum(Contribution)) %>% 
+    ggplot() +
+    geom_density(aes(x=TwoPlayerContr, fill=Result), alpha = 0.3)
 
 df.plyr.cntr %>% 
-    group_by(DayNum, TeamID, Result, contr.bin.m) %>% 
-    count() %>% 
-    filter(!is.na(contr.bin.m)) %>% 
-    mutate(contr.weight = as.numeric(as.character(contr.bin.m)) * n) %>% 
-    group_by(DayNum, TeamID, Result) %>% 
-    summarise(contr.weight = sum(contr.weight)) %>% 
+    group_by(DayNum, TeamID, TeamScore, Result) %>%
+    mutate(rank = rank(desc(Contribution))) %>%
+    filter(rank %in% c(1:2)) %>% 
+    summarise(TwoPlayerContr = sum(Contribution)) %>% 
     ggplot() +
-    geom_density(aes(x=contr.weight, fill=Result))
+    geom_point(aes(x=TeamScore, y=TwoPlayerContr,
+                   color=Result), alpha = 0.3)
+
+#Does the # of players contributing x% of the points
+#make a diff in the result
+df.50 <-
+    df.plyr.cntr %>% 
+    group_by(DayNum, TeamID, TeamScore, Result) %>%
+    mutate(rank = rank(desc(Contribution))) %>% 
+    arrange(rank) %>% 
+    mutate(GroupContr = cumsum(Contribution)) %>% 
+    filter(GroupContr >= 0.6) %>% 
+    summarise(NumPlayers = floor(min(rank))) %>% 
+    ungroup()
+
+df.50 %>% 
+    group_by(Result, NumPlayers) %>% 
+    count() %>% 
+    ggplot() +
+    geom_bar(aes(x=NumPlayers, y=n, fill=Result),
+             stat = 'identity', position = 'dodge')
