@@ -13,7 +13,7 @@ clean_df <- function(df, outcome){
     tmp <- 
         df %>% select(-WLoc) %>% 
         select(Season, contains(outcome, ignore.case = F), NumOT) %>% 
-        mutate(result = outcome)
+        mutate(wins = ifelse(outcome == 'W', 1, 0))
     names(tmp) <- str_replace(names(tmp), outcome, '')
     return(tmp)
 }
@@ -21,3 +21,16 @@ clean_df <- function(df, outcome){
 df.mm.c <- bind_rows(clean_df(df.mm, 'W'), clean_df(df.mm, 'L'))
 df.rs.c <- bind_rows(clean_df(df.rs, 'W'), clean_df(df.rs, 'L'))
 
+summarise_df <- function(df){
+    df %>% group_by(Season, TeamID) %>% 
+        summarise(Games = n(), Score = sum(Score), FGM = sum(FGM),
+                  FGA = sum(FGA), FGM3 = sum(FGM3), FGA3 = sum(FGA3),
+                  FTM = sum(FTM), FTA = sum(FTA), OR = sum(OR),
+                  DR = sum(DR), Ast = sum(Ast), TO = sum(TO),
+                  Stl = sum(Stl), Blk = sum(Blk), PF = sum(PF),
+                  NumOT = sum(NumOT), wins = sum(wins)) %>% 
+        ungroup()
+}
+
+df.rs.summ <- summarise_df(df.rs.c)
+df.FF.teams <- summarise_df(df.mm.c) %>% filter(Games >= 5)
