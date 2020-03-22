@@ -30,7 +30,8 @@ summarise_df <- function(df){
                   DR = sum(DR), Ast = sum(Ast), TO = sum(TO),
                   Stl = sum(Stl), Blk = sum(Blk), PF = sum(PF),
                   NumOT = sum(NumOT), wins = sum(wins)) %>% 
-        ungroup()
+        ungroup() %>% 
+        mutate_at(vars(-Season, -TeamID, -Games), funs(. / Games))
 }
 
 df.rs.summ <- summarise_df(df.rs.c)
@@ -38,16 +39,39 @@ df.mm.summ <- summarise_df(df.mm.c)
 
 
 
-df.rs.summ %>%
-    left_join(df.mm.summ %>%
-                  select(Season, TeamID) %>%
-                  mutate(MM = 'yes'),
-              by = c('Season', 'TeamID')) %>% 
-    filter(MM == 'yes') %>% 
-    select(-MM) %>% 
-    mutate_at(vars(-Season, -TeamID, -Games), funs(. / Games))
+df.mm.comp <-
+    df.rs.summ %>%
+    gather(Metric, rs_value, -Season, -TeamID) %>% 
+    left_join(., 
+              df.mm.summ %>%
+                  gather(Metric, mm_value, -Season, -TeamID),
+              by = c('Season', 'TeamID', 'Metric')) %>% 
+    filter(!is.na(mm_value),
+           !(Metric %in% c('Games', 'NumOT', 'wins')))
 
+team.set <- unique(df.mm.comp[c("Season", "TeamID")])
 
+df.sim <- data.frame()
+
+for (r in 1:nrow(team.set)) {
+    szn <- team.set[r, "Season"][[1]]
+    tid  <- team.set[r, "TeamID"][[1]]
+    df.szn.tid <- filter(df.mm.comp, Season == szn, TeamID == tid)
+    sim <- dist(rbind(df.szn.tid$rs_value, df.szn.tid$mm_value))
+    df.sim <- bind_rows(df.sim,
+                        data.frame(Season = szn, TeamID = tid,
+                                   Similarity = as.numeric(sim)))
+}
+
+df.sim %>% 
+    left_join(.,
+              df.mm.summ %>% select(Season, TeamID, Games),
+              by = c("Season", "TeamID")) %>% 
+    mutate(Sweet16 = ifelse(Games >= 3, 'Yes', 'No'),
+           FinalFour = ifelse(Games >= 5, 'Yes', 'No')) %>% 
+    filter(Games > 1) %>% 
+    ggplot(aes(x=Sweet16, y=Similarity, group=Sweet16)) +
+    geom_boxplot()
 
 
 #View AVGs vs Winning PCT
