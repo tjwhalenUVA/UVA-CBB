@@ -4,3 +4,7 @@
 .Ruserdata
 
 data/*
+
+eda/NCAA_EDA_cache/*
+eda/NCAA_EDA_files/*
+eda/test_file.R
