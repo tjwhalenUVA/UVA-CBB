@@ -1,0 +1,183 @@
+---
+title: "NCAA Men's College Basketball Analysis"
+author: "Jake Whalen"
+date: "March 22, 2020"
+output: 
+    html_document:
+      code_folding: hide
+      number_sections: yes
+      toc: yes
+      toc_float: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      message = FALSE)
+```
+
+```{r packages, include=FALSE}
+library(vroom)
+library(tidyverse)
+library(magrittr)
+library(ggthemes)
+```
+
+```{r helpers, include=FALSE}
+my_theme <- 
+    theme_solarized() +
+    theme(panel.background = element_rect(color='black'))
+```
+
+# Purpose
+
+The purpose of this project is to explore the Mens NCAA March Madness data for insight into what gives teams a winning advantage.
+This will be done in a series of steps.
+The first will be to explore the data and create some nice visuals to help better understand what each file contains.
+The second will be to work through a series of questions and use the data to come up with an answer to each.
+The final step is to take the information learned from the first two steps and attempt to predict winners and losers.
+At the end of this project I hope to have found some interesting insights into what winning teams do well, answered the questions I have come up with for the data, and built a working model to predict game outcomes.
+
+# Data
+
+The data for this project was downloaded from the [Google Cloud & NCAA March Madness Analytics](https://www.kaggle.com/c/march-madness-analytics-2020/data) Kaggle competition.
+The project will focus on the data from the NCAA Men's league.
+The list of names below are the data files included for this analysis.
+
+```{r data, cache=TRUE}
+folder <- 'C:/Users/Jake/Documents/Projects/UVA-CBB/data/MDataFiles_Stage1'
+files <- list.files(folder)
+dfs <- list()
+
+for (f in files){
+    df.name <- str_replace(f, '.csv', '')
+    dfs[[df.name]] <- vroom(file.path(folder, f))
+}
+files
+```
+
+In addition to the files above there are play-by-play records since 2015.
+These files contain indic=vidual records for every event takig place during the season.
+There is potential for the data to not be 100% accurate in these files so they will be used sparingly as a secondary data source.
+
+```{r pbp, cache=TRUE}
+folder <- 'C:/Users/Jake/Documents/Projects/UVA-CBB/data'
+files <- list.files(folder, pattern = "MEvents")
+pbp <- list()
+
+for (f in files){
+    df.name <- str_replace(f, '.csv', '')
+    pbp[[df.name]] <- vroom(file.path(folder, f))
+}
+files
+```
+
+
+# Exploratory Data Analysis (EDA)
+
+Some of the data files supplied contain useful metadata to go along with some of the other more detailed files.
+These files include Cities, MGameCities, Conferences, MNCAATourneySeedRoundSlots, MSeasons, MTeamConferences, MNCAATourneySlots, and MTeamSpellings.
+The data from these files may be incorporated into the analysis later on but ther is nothing to discover from these files alone.
+
+## Teams
+
+The __MTeams__ dataframe contains the TeamID, team name, and first/last season the team was active in.
+Schools with an active team still competing in todays league have the year 2020 in the _LastD1Season_ column.
+
+There have been `r nrow(dfs$MTeams)` D1 teams that have played at least one seson since `r min(dfs$MTeams$FirstD1Season)` (first season recorded in data).
+In `r min(dfs$MTeams$FirstD1Season)` there were `r nrow(filter(dfs$MTeams, FirstD1Season == min(dfs$MTeams$FirstD1Season)))` active D1 men's teams.
+There were `r nrow(filter(dfs$MTeams, LastD1Season == 2020))` active teams in the most recent college basketball season (2019-2020).
+The chart below shows the growth over time in the number of men's D1 basketball teams.
+The number of new teams added (85) to the D1 landscape, since 1985, have far surpassed the number of teams that have folded (12).
+
+```{r}
+left_join(dfs$MTeams %>%
+              group_by(Season = FirstD1Season) %>% summarise(First = n()),
+          dfs$MTeams %>%
+              group_by(Season = LastD1Season) %>% summarise(Last = n()),
+          by = 'Season') %>% 
+    mutate(Last = ifelse(is.na(Last), 0, Last),
+           fCS = cumsum(First),
+           lCS = cumsum((Last)),
+           current = fCS - lag(lCS),
+           current = ifelse(is.na(current), First, current)) %>% 
+    ggplot(aes(x=Season, y=current)) +
+    geom_line() +
+    geom_point(color = 'maroon') +
+    labs(title = "Growth of NCAA Men's Div 1",
+         y = 'Number of Teams', x = 'Season') +
+    my_theme
+```
+
+## Tournament Seeding
+
+
+### Seeding
+
+```{r}
+df.seed.results<-
+    dfs$MNCAATourneyCompactResults %>% 
+    select(Season, DayNum, WTeamID, LTeamID) %>% 
+    left_join(., 
+              dfs$MNCAATourneySeeds %>% rename(WTeamID = TeamID, WSeed = Seed),
+              by = c('Season', 'WTeamID')) %>% 
+    left_join(., 
+              dfs$MNCAATourneySeeds %>% rename(LTeamID = TeamID, LSeed = Seed),
+              by = c('Season', 'LTeamID')) %>% 
+    mutate(WSeed = str_replace(WSeed, 'a', ''),
+           WSeed = str_replace(WSeed, 'b', ''),
+           LSeed = str_replace(LSeed, 'a', ''),
+           LSeed = str_replace(LSeed, 'b', ''),
+           WReg = substr(WSeed, 1, 1),
+           LReg = substr(LSeed, 1, 1),
+           W_L_Regions = paste(WReg, LReg, sep = "/"),
+           WSeed = as.numeric(substr(WSeed, 2, 3)),
+           LSeed = as.numeric(substr(LSeed, 2, 3)))
+
+df.wvl.seed <-
+    df.seed.results %>%
+    group_by(WSeed, LSeed) %>% 
+    summarise(WSeedWins = n())
+
+df.wvl.seed %>% 
+    left_join(., 
+              df.wvl.seed %>% 
+                  rename(LSeed = WSeed, WSeed = LSeed,
+                         LSeedWins = WSeedWins),
+              by = c('WSeed', 'LSeed')) %>%
+    filter(WSeed != LSeed,
+           !is.na(LSeedWins)) %>% 
+    mutate(WSeedWinPct = WSeedWins / (WSeedWins + LSeedWins)) %>%
+    ggplot(aes(x=LSeed, y=WSeed, fill=WSeedWinPct)) +
+    geom_tile() +
+    geom_text(aes(label = round(WSeedWinPct, 2))) +
+    geom_segment(aes(x=0.5, y=0.5, xend=16.5, yend=16.5)) +
+    geom_hline(yintercept = 0.5:16.5, color = 'grey') +
+    geom_vline(xintercept = 0.5:16.5, color = 'grey') +
+    scale_y_continuous(trans = "reverse", breaks = 1:16, expand = c(0,0)) +
+    scale_x_continuous(position = "top", breaks = 1:16, expand = c(0,0)) +
+    scale_fill_distiller(palette = "Spectral") +
+    my_theme +
+    theme(axis.ticks = element_blank(),
+          legend.position = 'bottom') +
+    labs(x = 'Losing Team Seed', y = 'Winning Team Seed')
+```
+
+
+## Conference Tourneys
+
+MConferenceTourneyGames
+
+## Coaches
+
+MTeamCoaches
+
+## Rankings
+
+MMasseyOrdinals
+
+# Asking the Data Questions
+
+* Coaching changes
+* Similarity between reg season and playoffs
+* Distance from home in tourney
+* Best region to be in to win it all?
