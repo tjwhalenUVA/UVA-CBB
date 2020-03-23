@@ -42,6 +42,8 @@ At the end of this project I hope to have found some interesting insights into w
 The data for this project was downloaded from the [Google Cloud & NCAA March Madness Analytics](https://www.kaggle.com/c/march-madness-analytics-2020/data) Kaggle competition.
 The project will focus on the data from the NCAA Men's league.
 The list of names below are the data files included for this analysis.
+The data goes back to 1985.
+The reason for cutting off at 1985 is because this was the first year the tournament expanded to 64 teams, similar to today but without the 4 play-in teams.
 
 ```{r data, cache=TRUE}
 folder <- 'C:/Users/Jake/Documents/Projects/UVA-CBB/data/MDataFiles_Stage1'
@@ -108,13 +110,24 @@ left_join(dfs$MTeams %>%
     my_theme
 ```
 
-## Tournament Seeding
+## NCAA March Madness
 
+There are a handful of data sets included that are specific to the NCAA MArch Madness tournament.
 
-### Seeding
+### Tournament Seeding
+
+Selection Sunday is the Sunday on the final weekend of the regular season when conference tournaments wrap up.
+The name comes from the fact that on that day the 64 (68 including play-ins) teams are selected on live TV to compete in March Madness.
+While some teams are waiting to find out if they will be invited, a majority already know with almost near certainty that they will be given an invite.
+Those teams who know they are in are mostly interested to see what their seed is and who their opponents will be.
+
+Seeding in the tournament is very important.
+It is widely considered that the higher the seed the better chance you have at making the Final Four and winning the National Championship.
+The lowest seed to ever win the championship was Villanova at the 8 spot.
+This isn't to say seeds below an 8 should be counted out, but history is not on their side.
 
 ```{r}
-df.seed.results<-
+df.seed.results <-
     dfs$MNCAATourneyCompactResults %>% 
     select(Season, DayNum, WTeamID, LTeamID) %>% 
     left_join(., 
@@ -132,7 +145,29 @@ df.seed.results<-
            W_L_Regions = paste(WReg, LReg, sep = "/"),
            WSeed = as.numeric(substr(WSeed, 2, 3)),
            LSeed = as.numeric(substr(LSeed, 2, 3)))
+```
 
+The graphic below shows the winnig percentage amongst seed matchups.
+The seeds denoted on the y-axis are the winners while the seeds across the x-axis are the losers.
+The diagonal (equal seeded matchups) were removed from this chart since there was no comparison (1 seed has a 100% win rate against 1 seeds with a 100% losing rate at the same time).
+A blank indicates the two seeds have never matched up before in the tournament.
+When viewing this chart it is important to remind yourself that not all of these matchups are as common as others.
+For instance a 1 vs 16 and a 8 vs 9 are guaranteed to be played four times every single tournament because those are first round games.
+
+A few quick takeaways from the graphic below:
+
+* 1 Seeds:
+    + Have lost to a 16 only one time in the history of the tournament.
+    + As expected, have a greater than 50% winning percentage against all other seeds.
+    + Have never faced a 14 or 15 seed due to these lower seeds never advancing far enough (Elite 8).
+    + Struggle with the 11 seeds, only posting a 57% winning percentage.
+* Being a 2 seed doesn't look as good as it sounds.
+    + 0 wins over 5 and 9 seeds.
+    + An abysmal 29% winning percentage over 8 seeds.
+* In recent memory the 5 vs 12 is a common upset pick in many brackets however the 12 seed only holds a 36% winning percentage in this matchup.
+
+
+```{r}
 df.wvl.seed <-
     df.seed.results %>%
     group_by(WSeed, LSeed) %>% 
@@ -144,9 +179,9 @@ df.wvl.seed %>%
                   rename(LSeed = WSeed, WSeed = LSeed,
                          LSeedWins = WSeedWins),
               by = c('WSeed', 'LSeed')) %>%
-    filter(WSeed != LSeed,
-           !is.na(LSeedWins)) %>% 
-    mutate(WSeedWinPct = WSeedWins / (WSeedWins + LSeedWins)) %>%
+    filter(WSeed != LSeed) %>% 
+    mutate(LSeedWins = ifelse(is.na(LSeedWins), 0, LSeedWins),
+           WSeedWinPct = WSeedWins / (WSeedWins + LSeedWins)) %>%
     ggplot(aes(x=LSeed, y=WSeed, fill=WSeedWinPct)) +
     geom_tile() +
     geom_text(aes(label = round(WSeedWinPct, 2))) +
@@ -158,10 +193,10 @@ df.wvl.seed %>%
     scale_fill_distiller(palette = "Spectral") +
     my_theme +
     theme(axis.ticks = element_blank(),
-          legend.position = 'bottom') +
+          legend.position = 'bottom',
+          panel.grid.major = element_blank()) +
     labs(x = 'Losing Team Seed', y = 'Winning Team Seed')
 ```
-
 
 ## Conference Tourneys
 
@@ -181,3 +216,4 @@ MMasseyOrdinals
 * Similarity between reg season and playoffs
 * Distance from home in tourney
 * Best region to be in to win it all?
+* Do regular season matchups determine MM outcome?
