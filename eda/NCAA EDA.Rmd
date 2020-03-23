@@ -12,7 +12,8 @@ output:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE,
-                      message = FALSE)
+                      message = FALSE,
+                      fig.width = 8, fig.height = 3)
 ```
 
 ```{r packages, include=FALSE}
@@ -20,6 +21,7 @@ library(vroom)
 library(tidyverse)
 library(magrittr)
 library(ggthemes)
+library(gridExtra)
 ```
 
 ```{r helpers, include=FALSE}
@@ -62,15 +64,15 @@ These files contain indic=vidual records for every event takig place during the 
 There is potential for the data to not be 100% accurate in these files so they will be used sparingly as a secondary data source.
 
 ```{r pbp, cache=TRUE}
-folder <- 'C:/Users/Jake/Documents/Projects/UVA-CBB/data'
-files <- list.files(folder, pattern = "MEvents")
-pbp <- list()
-
-for (f in files){
-    df.name <- str_replace(f, '.csv', '')
-    pbp[[df.name]] <- vroom(file.path(folder, f))
-}
-files
+# folder <- 'C:/Users/Jake/Documents/Projects/UVA-CBB/data'
+# files <- list.files(folder, pattern = "MEvents")
+# pbp <- list()
+# 
+# for (f in files){
+#     df.name <- str_replace(f, '.csv', '')
+#     pbp[[df.name]] <- vroom(file.path(folder, f))
+# }
+# files
 ```
 
 
@@ -167,7 +169,7 @@ A few quick takeaways from the graphic below:
 * In recent memory the 5 vs 12 is a common upset pick in many brackets however the 12 seed only holds a 36% winning percentage in this matchup.
 
 
-```{r}
+```{r, fig.height=6}
 df.wvl.seed <-
     df.seed.results %>%
     group_by(WSeed, LSeed) %>% 
@@ -197,6 +199,74 @@ df.wvl.seed %>%
           panel.grid.major = element_blank()) +
     labs(x = 'Losing Team Seed', y = 'Winning Team Seed')
 ```
+
+```{r}
+team.seeds <-
+    dfs$MNCAATourneySeeds %>% 
+    mutate(Seed = str_replace(Seed, 'a', ''),
+           Seed = str_replace(Seed, 'b', ''),
+           Region = substr(Seed, 1, 1),
+           Seed = as.numeric(substr(Seed, 2, 3))) %>% 
+    left_join(., 
+              dfs$MTeams %>% select(TeamID, TeamName))
+
+team.seeds.summ <-
+    team.seeds %>% 
+    group_by(TeamName) %>% 
+    summarise(Appearances = n(), AvgSeed = mean(Seed),
+              High = max(Seed), Low = min(Seed)) %>% 
+    ungroup()
+```
+
+```{r, fig.height=4}
+#Teams history of being seeded
+p1 <- team.seeds.summ %>% 
+    ungroup() %>% 
+    mutate(rank = rank(-Appearances, ties.method = 'min')) %>% 
+    filter(rank <= 10) %>% 
+    ggplot(aes(x = Appearances, y=reorder(TeamName, Appearances))) +
+    geom_bar(stat = 'identity', fill = 'lightblue', color = 'black') +
+    geom_text(aes(x=Appearances/2, label = Appearances)) +
+    my_theme +
+    labs(y = 'Team', x = 'Tournament Appearances (Max 35)')
+
+#Teams average seed
+p2 <- team.seeds.summ %>% 
+    mutate(rank = rank(AvgSeed, ties.method = 'min')) %>% 
+    filter(rank <= 10) %>% 
+    ggplot(aes(x = AvgSeed, y=reorder(TeamName, -AvgSeed))) +
+    geom_bar(stat = 'identity', fill = 'lightblue', color = 'black') +
+    geom_text(aes(x=AvgSeed/2, label = sprintf("%s (%s)", round(AvgSeed, 2), Appearances))) +
+    my_theme +
+    labs(y = 'Team', x = 'Average Seed (Appearances)')
+
+grid.arrange(p1, p2, ncol=2)
+```
+
+```{r, fig.height=6}
+#Avg Seed vs Winning %
+dfs$MNCAATourneyCompactResults %>%
+    group_by(TeamID = WTeamID) %>%
+    summarise(Wins = n()) %>% 
+    left_join(.,
+              dfs$MNCAATourneyCompactResults %>%
+                  group_by(TeamID = LTeamID) %>%
+                  summarise(Losses = n()),
+              by = 'TeamID') %>% 
+    left_join(., 
+              dfs$MTeams %>% select(TeamID, TeamName),
+              by = 'TeamID') %>% 
+    mutate(WinPct = Wins / (Wins + Losses)) %>% 
+    select(TeamName, WinPct) %>% 
+    left_join(., team.seeds.summ, by = 'TeamName') %>% 
+    ggplot(aes(x=AvgSeed, y=WinPct)) +
+    geom_text(aes(label = TeamName, color = TeamName),
+              size = 3, show.legend = F) +
+    my_theme +
+    labs(y = 'March Madness Winning Percentage', x = 'Average Seed') +
+    scale_y_continuous(labels = scales::percent)
+```
+
 
 ## Conference Tourneys
 
