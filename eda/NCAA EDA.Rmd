@@ -22,6 +22,7 @@ library(tidyverse)
 library(magrittr)
 library(ggthemes)
 library(gridExtra)
+library(janitor)
 ```
 
 ```{r helpers, include=FALSE}
@@ -192,7 +193,8 @@ df.wvl.seed %>%
     geom_vline(xintercept = 0.5:16.5, color = 'grey') +
     scale_y_continuous(trans = "reverse", breaks = 1:16, expand = c(0,0)) +
     scale_x_continuous(position = "top", breaks = 1:16, expand = c(0,0)) +
-    scale_fill_distiller(palette = "Spectral") +
+    scale_fill_gradient2(low = 'red', mid='grey',
+                         high='green', midpoint = 0.5) +
     my_theme +
     theme(axis.ticks = element_blank(),
           legend.position = 'bottom',
@@ -265,6 +267,58 @@ dfs$MNCAATourneyCompactResults %>%
     my_theme +
     labs(y = 'March Madness Winning Percentage', x = 'Average Seed') +
     scale_y_continuous(labels = scales::percent)
+```
+
+```{r, fig.height=8}
+#Conf vs conf
+cnf_v_cnf <-
+    dfs$MNCAATourneyCompactResults %>% 
+    select(Season, WTeamID, LTeamID) %>% 
+    left_join(.,
+              dfs$MTeamConferences %>%
+                  rename(WTeamID = TeamID, WConf = ConfAbbrev)) %>% 
+    left_join(.,
+              dfs$MTeamConferences %>%
+                  rename(LTeamID = TeamID, LConf = ConfAbbrev)) %>% 
+    group_by(WConf, LConf) %>% 
+    count()
+
+keep_conf <-
+    dfs$MTeamConferences %>% 
+    filter(Season == 2020) %>%
+    group_by(ConfAbbrev) %>% 
+    count() %>% 
+    select(Conf = ConfAbbrev) %>% 
+    .[[1]]
+
+cnf_v_cnf %<>%
+    filter(WConf %in% keep_conf, LConf %in% keep_conf)
+
+cnf_v_cnf %>% 
+    full_join(.,
+              cnf_v_cnf %>% 
+                  rename(WConf = LConf,
+                         LConf = WConf,
+                         n_L = n)) %>%
+    filter(WConf != LConf) %>% 
+    mutate(n = ifelse(is.na(n), 0, n),
+           n_L = ifelse(is.na(n_L), 0, n_L),
+           WinPct = n / (n + n_L)) %>% 
+    ggplot(aes(y=WConf, x=LConf, fill=WinPct)) +
+    geom_tile() +
+    geom_text(aes(label = round(WinPct, 2)), size=2, angle = 35) +
+    geom_segment(aes(x=0.5, y=32.5, xend=32.5, yend=0.5)) +
+    geom_hline(yintercept = 1.5:32.5) +
+    geom_vline(xintercept = 1.5:32.5) +
+    scale_x_discrete(position = 'top', expand = c(0,0)) +
+    scale_y_discrete(limits = rev(unique(cnf_v_cnf$WConf)), expand = c(0,0)) +
+    scale_fill_gradient2(low = 'red', mid='grey',
+                         high='green', midpoint = 0.5) +
+    my_theme +
+    theme(axis.text.x = element_text(angle = 45, hjust = -.1),
+          panel.grid.major = element_blank(),
+          legend.position = 'bottom') +
+    labs(x='Losing Team Conference', y='Winning Team Conference')
 ```
 
 
