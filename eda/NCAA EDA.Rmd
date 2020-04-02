@@ -129,26 +129,7 @@ It is widely considered that the higher the seed the better chance you have at m
 The lowest seed to ever win the championship was Villanova at the 8 spot.
 This isn't to say seeds below an 8 should be counted out, but history is not on their side.
 
-```{r}
-df.seed.results <-
-    dfs$MNCAATourneyCompactResults %>% 
-    select(Season, DayNum, WTeamID, LTeamID) %>% 
-    left_join(., 
-              dfs$MNCAATourneySeeds %>% rename(WTeamID = TeamID, WSeed = Seed),
-              by = c('Season', 'WTeamID')) %>% 
-    left_join(., 
-              dfs$MNCAATourneySeeds %>% rename(LTeamID = TeamID, LSeed = Seed),
-              by = c('Season', 'LTeamID')) %>% 
-    mutate(WSeed = str_replace(WSeed, 'a', ''),
-           WSeed = str_replace(WSeed, 'b', ''),
-           LSeed = str_replace(LSeed, 'a', ''),
-           LSeed = str_replace(LSeed, 'b', ''),
-           WReg = substr(WSeed, 1, 1),
-           LReg = substr(LSeed, 1, 1),
-           W_L_Regions = paste(WReg, LReg, sep = "/"),
-           WSeed = as.numeric(substr(WSeed, 2, 3)),
-           LSeed = as.numeric(substr(LSeed, 2, 3)))
-```
+#### Seed Matchup Performance
 
 The graphic below shows the winnig percentage amongst seed matchups.
 The seeds denoted on the y-axis are the winners while the seeds across the x-axis are the losers.
@@ -171,6 +152,25 @@ A few quick takeaways from the graphic below:
 
 
 ```{r, fig.height=6}
+df.seed.results <-
+    dfs$MNCAATourneyCompactResults %>% 
+    select(Season, DayNum, WTeamID, LTeamID) %>% 
+    left_join(., 
+              dfs$MNCAATourneySeeds %>% rename(WTeamID = TeamID, WSeed = Seed),
+              by = c('Season', 'WTeamID')) %>% 
+    left_join(., 
+              dfs$MNCAATourneySeeds %>% rename(LTeamID = TeamID, LSeed = Seed),
+              by = c('Season', 'LTeamID')) %>% 
+    mutate(WSeed = str_replace(WSeed, 'a', ''),
+           WSeed = str_replace(WSeed, 'b', ''),
+           LSeed = str_replace(LSeed, 'a', ''),
+           LSeed = str_replace(LSeed, 'b', ''),
+           WReg = substr(WSeed, 1, 1),
+           LReg = substr(LSeed, 1, 1),
+           W_L_Regions = paste(WReg, LReg, sep = "/"),
+           WSeed = as.numeric(substr(WSeed, 2, 3)),
+           LSeed = as.numeric(substr(LSeed, 2, 3)))
+
 df.wvl.seed <-
     df.seed.results %>%
     group_by(WSeed, LSeed) %>% 
@@ -189,8 +189,8 @@ df.wvl.seed %>%
     geom_tile() +
     geom_text(aes(label = round(WSeedWinPct, 2))) +
     geom_segment(aes(x=0.5, y=0.5, xend=16.5, yend=16.5)) +
-    geom_hline(yintercept = 0.5:16.5, color = 'grey') +
-    geom_vline(xintercept = 0.5:16.5, color = 'grey') +
+    geom_hline(yintercept = 0.5:16.5) +
+    geom_vline(xintercept = 0.5:16.5) +
     scale_y_continuous(trans = "reverse", breaks = 1:16, expand = c(0,0)) +
     scale_x_continuous(position = "top", breaks = 1:16, expand = c(0,0)) +
     scale_fill_gradient2(low = 'red', mid='grey',
@@ -202,7 +202,14 @@ df.wvl.seed %>%
     labs(x = 'Losing Team Seed', y = 'Winning Team Seed')
 ```
 
-```{r}
+#### Individual Team Tournament History
+
+The graphs below take a look at the frequency with which teams made the tournament over the past 35 seasons (left) and their average seed when making the tournament (right).
+These graphics confirm what most who follow college basketball already knew, the blue bloods (Duke, UNC, UK, KU) are nicknamed that for a reason.
+The consistently make the tournament and they are consistently given high seeds.
+
+
+```{r, fig.height=4}
 team.seeds <-
     dfs$MNCAATourneySeeds %>% 
     mutate(Seed = str_replace(Seed, 'a', ''),
@@ -218,9 +225,7 @@ team.seeds.summ <-
     summarise(Appearances = n(), AvgSeed = mean(Seed),
               High = max(Seed), Low = min(Seed)) %>% 
     ungroup()
-```
 
-```{r, fig.height=4}
 #Teams history of being seeded
 p1 <- team.seeds.summ %>% 
     ungroup() %>% 
@@ -245,8 +250,20 @@ p2 <- team.seeds.summ %>%
 grid.arrange(p1, p2, ncol=2)
 ```
 
+#### Average Seed vs March Madness Winning Percentage
+
+The graph below plots each teams average tournamnet seed (x-axis) against their tournamnet winning percentage all-time (y-axis).
+The graph illustrates what most would expect, higher seeds (lower on x-axis) win more games in the tournament (higher on the y-axis).
+You see the blue bloods in the top left corner as expected.
+Loyola-Chicago seems to be a bit of an outlier.
+This is primarily due to their Final Four run in 2018 as an 11 seed.
+Prior to that they had been to the tournament one time as a 4 seed in 1985.
+On the other end there is a team like TCU who has consistently underperformed there seeding.
+With three trips to the tournament as a 4, 5, and 6 seed they have posted a sub 30% winning percentage.
+
 ```{r, fig.height=6}
 #Avg Seed vs Winning %
+#filter(dfs$MNCAATourneySeeds, TeamID == filter(dfs$MTeams, TeamName == 'Cleveland St')$TeamID)
 dfs$MNCAATourneyCompactResults %>%
     group_by(TeamID = WTeamID) %>%
     summarise(Wins = n()) %>% 
@@ -268,6 +285,10 @@ dfs$MNCAATourneyCompactResults %>%
     labs(y = 'March Madness Winning Percentage', x = 'Average Seed') +
     scale_y_continuous(labels = scales::percent)
 ```
+
+#### Conference Matchup Performance
+
+Only includes conferences that existed in the 2019-20 season.
 
 ```{r, fig.height=8}
 #Conf vs conf
