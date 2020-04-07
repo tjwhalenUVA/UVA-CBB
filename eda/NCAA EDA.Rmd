@@ -80,7 +80,7 @@ There is potential for the data to not be 100% accurate in these files so they w
 # Exploratory Data Analysis (EDA)
 
 Some of the data files supplied contain useful metadata to go along with some of the other more detailed files.
-These files include Cities, MGameCities, Conferences, MNCAATourneySeedRoundSlots, MSeasons, MTeamConferences, MNCAATourneySlots, and MTeamSpellings.
+These files include Cities, MGameCities, Conferences, MNCAATourneySeedRoundSlots, MSeasons, MTeamConferences, MNCAATourneySlots, MConferenceTourneyGames, and MTeamSpellings.
 The data from these files may be incorporated into the analysis later on but ther is nothing to discover from these files alone.
 
 ## Teams
@@ -288,7 +288,18 @@ dfs$MNCAATourneyCompactResults %>%
 
 #### Conference Matchup Performance
 
-Only includes conferences that existed in the 2019-20 season.
+Since 1985 there have been a total of 51 conferences in the college basketball landscape.
+The chart below shows how each conference has faired in tournament games against other conferences.
+In order to make the graphic below more legible, only the results for conferences still competing in 2019-20 are displayed.
+Each row contains the conferences winning percentage against all other conferences.
+For teams that moved conferences (i.e. Syracuse or Louisville) their results are applied to the conference that they belonged to at the time.
+
+A few observations on the results of the chart below:
+
+* The ACC, Big Ten, Big Twelve, and SEC post very few losing records against all other conferences. Combined they hold losing records against only 7 other conferences.
+* The ACC has a really poor reputation against the Horizon league suprisingly.
+* CUSA has a perfect record against 13 other conferences. This is most likely a factor of a smaller sample size rather than actual dominance in the tournament.
+* The SWAC is better to bet against, with 14 zero win records against other conferences. This again is less likely to be an accurate depiction of the conferences true performance and more a case of very few games in the tournament.
 
 ```{r, fig.height=8}
 #Conf vs conf
@@ -341,11 +352,6 @@ cnf_v_cnf %>%
           legend.position = 'bottom') +
     labs(x='Losing Team Conference', y='Winning Team Conference')
 ```
-
-
-## Conference Tourneys
-
-MConferenceTourneyGames
 
 ## Coaches
 
