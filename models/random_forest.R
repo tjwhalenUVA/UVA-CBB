@@ -42,13 +42,28 @@ add_RegSznStats <- function(df){
     df %<>% 
         left_join(., #Add stats for Team 1
                   reg_szn_stats %>% 
-                      select(T_1_ID = TeamID, T_1_WinPct = WinPct,
+                      select(Season, T_1_ID = TeamID, T_1_WinPct = WinPct,
                              T_1_AvgPtsFor = AvgPtsFor, T_1_AvgPtsAgn = AvgPtsAgn),
                   by = c("Season", "T_1_ID")) %>% 
         left_join(., #Add stats for Team 2
                   reg_szn_stats %>% 
-                      select(T_2_ID = TeamID, T_2_WinPct = WinPct,
+                      select(Season, T_2_ID = TeamID, T_2_WinPct = WinPct,
                              T_2_AvgPtsFor = AvgPtsFor, T_2_AvgPtsAgn = AvgPtsAgn),
+                  by = c("Season", "T_2_ID"))
+    return(df)
+}
+
+#Add team conferences
+add_conference <- function(df){
+    conferences <- dfs$MTeamConferences %>% mutate(ConfAbbrev = factor(ConfAbbrev))
+    df %<>% 
+        left_join(., #Add conference for Team 1
+                  conferences %>% 
+                      select(Season, T_1_ID = TeamID, T_1_Conf = ConfAbbrev),
+                  by = c("Season", "T_1_ID")) %>% 
+        left_join(., #Add stats for Team 2
+                  conferences %>% 
+                      select(Season, T_2_ID = TeamID, T_2_Conf = ConfAbbrev),
                   by = c("Season", "T_2_ID"))
     return(df)
 }
@@ -93,10 +108,11 @@ tourney_games <- #randomly shuffle winners/losers so the inner is not always the
 tourney_games %<>% 
     add_seeds(.) %>% 
     add_RegSznStats(.) %>% 
+    add_conference(.) %>% 
     convert_to_factor(.)
 
-train <- train_test(tourney_games)
-test <- train_test(tourney_games, set = 'test')
+# train <- train_test(tourney_games)
+# test <- train_test(tourney_games, set = 'test')
 
 train <- tourney_games %>% filter(Season != 2019) %>% select(-Season, -T_1_ID, -T_2_ID)
 test <- tourney_games %>% filter(Season == 2019) %>% select(-Season, -T_1_ID, -T_2_ID)
@@ -109,5 +125,8 @@ model1
 # Predicting on train set
 predTest <- predict(model1, test, type = "class")
 # Checking classification accuracy
+mean(predTest == test$T_1_Win)                    
 table(predTest, test$T_1_Win)
-
+# To check important variables
+importance(model1)        
+varImpPlot(model1)
