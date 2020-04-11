@@ -1,4 +1,5 @@
 library(randomForest)
+library(caTools)
 
 #Set up dataframe
 tourney_games <- #randomly shuffle winners/losers so the inner is not always the same column
@@ -52,4 +53,15 @@ tourney_games %<>%
                   select(T_2_ID = TeamID, T_2_WinPct = WinPct,
                          T_2_AvgPtsFor = AvgPtsFor, T_2_AvgPtsAgn = AvgPtsAgn),
               by = c("Season", "T_2_ID"))
+
+
+#Change TeamIDs and Season to a factor
+set.seed(123)
+tourney_games %<>%
+    mutate(Season = factor(Season), 
+           T_1_ID = factor(T_1_ID),
+           T_2_ID = factor(T_2_ID),
+           split = sample.split(T_1_Win, SplitRatio=0.8))
+
+
 
