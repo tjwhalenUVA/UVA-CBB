@@ -68,6 +68,26 @@ add_conference <- function(df){
     return(df)
 }
 
+#Previous Year Tournament Participant
+add_PreSznTourn <- function(df){
+    prev_szn_trn <- 
+        dfs$MNCAATourneySeeds %>% 
+        mutate(Season = Season + 1, MadeTourn = 1) %>% 
+        select(Season, TeamID, MadeTourn)
+    df %<>% 
+        left_join(., #Add prev szn tourn participation for Team 1
+                  prev_szn_trn %>% 
+                      select(Season, T_1_ID = TeamID, T_1_MadeTourn = MadeTourn),
+                  by = c("Season", "T_1_ID")) %>% 
+        left_join(., #Add prev szn tourn participation for Team 2
+                  prev_szn_trn %>% 
+                      select(Season, T_2_ID = TeamID, T_2_MadeTourn = MadeTourn),
+                  by = c("Season", "T_2_ID")) %>% 
+        mutate(T_1_MadeTourn = if_else(is.na(T_1_MadeTourn), 0, T_1_MadeTourn),
+               T_2_MadeTourn = if_else(is.na(T_2_MadeTourn), 0, T_1_MadeTourn))
+}
+
+
 #Convert specific columns to factors
 convert_to_factor <- function(df){
     df %<>%
@@ -108,7 +128,8 @@ tourney_games <- #randomly shuffle winners/losers so the inner is not always the
 tourney_games %<>% 
     add_seeds(.) %>% 
     add_RegSznStats(.) %>% 
-    add_conference(.) %>% 
+    add_conference(.) %>%
+    add_PreSznTourn(.) %>% 
     convert_to_factor(.)
 
 # train <- train_test(tourney_games)
@@ -119,14 +140,19 @@ test <- tourney_games %>% filter(Season == 2019) %>% select(-Season, -T_1_ID, -T
 
 #Model 1----
 # Create a Random Forest model with default parameters
-model1 <- randomForest(T_1_Win ~ ., data = train)
-model1
+model_1 <- randomForest(T_1_Win ~ ., data = train)
+model_1
 
 # Predicting on train set
-predTest <- predict(model1, test, type = "class")
+predTest <- predict(model_1, test, type = "class")
 # Checking classification accuracy
 mean(predTest == test$T_1_Win)                    
 table(predTest, test$T_1_Win)
 # To check important variables
-importance(model1)        
-varImpPlot(model1)
+importance(model_1)        
+varImpPlot(model_1)
+
+#Model 2----
+
+model_2 <- randomForest(T_1_Win ~ ., data = train, nodesize = 5)
+model_2
