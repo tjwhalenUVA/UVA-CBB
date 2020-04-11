@@ -1,6 +1,82 @@
 library(randomForest)
 library(caTools)
 
+#Additional DFs----
+#Create features from other DFs to add to the data for modeling
+#Regular Season Statistics
+reg_szn_stats <-
+    left_join(dfs$MRegularSeasonCompactResults %>% 
+                  group_by(Season, TeamID = WTeamID) %>% 
+                  summarise(Wins = n(), #calculate wins/losses/pts when team wins
+                            PtsFor_W = sum(WScore),
+                            PtsAgn_W = sum(LScore)),
+              dfs$MRegularSeasonCompactResults %>% 
+                  group_by(Season, TeamID = LTeamID) %>% 
+                  summarise(Losses = n(), #calculate wins/losses/pts when team loses
+                            PtsFor_L = sum(LScore),
+                            PtsAgn_L = sum(WScore)),
+              by = c("Season", "TeamID")) 
+
+reg_szn_stats[is.na(reg_szn_stats)] = 0 #some teams never lost and others never won
+
+reg_szn_stats %<>% 
+    mutate(WinPct = Wins / (Wins + Losses), #season winning %
+           AvgPtsFor = (PtsFor_W + PtsFor_L) / (Wins + Losses), #Average Score
+           AvgPtsAgn = (PtsAgn_W + PtsAgn_L) / (Wins + Losses)) #Average Points against
+
+
+#Feature Adding Functions----
+#Add team seeds to the feature df
+add_seeds <- function(df){
+    tourney_seeds <- dfs$MNCAATourneySeeds %>% mutate(Seed = parse_number(Seed))
+    df %<>% 
+        left_join(., tourney_seeds %>% rename(T_1_ID = TeamID, T_1_Seed = Seed),
+                  by = c("Season", "T_1_ID")) %>% 
+        left_join(., tourney_seeds %>% rename(T_2_ID = TeamID, T_2_Seed = Seed),
+                  by = c("Season", "T_2_ID"))
+    return(df)
+}
+
+#Add reg season stats
+add_RegSznStats <- function(df){
+    df %<>% 
+        left_join(., #Add stats for Team 1
+                  reg_szn_stats %>% 
+                      select(T_1_ID = TeamID, T_1_WinPct = WinPct,
+                             T_1_AvgPtsFor = AvgPtsFor, T_1_AvgPtsAgn = AvgPtsAgn),
+                  by = c("Season", "T_1_ID")) %>% 
+        left_join(., #Add stats for Team 2
+                  reg_szn_stats %>% 
+                      select(T_2_ID = TeamID, T_2_WinPct = WinPct,
+                             T_2_AvgPtsFor = AvgPtsFor, T_2_AvgPtsAgn = AvgPtsAgn),
+                  by = c("Season", "T_2_ID"))
+    return(df)
+}
+
+#Convert specific columns to factors
+convert_to_factor <- function(df){
+    df %<>%
+        mutate(Season = factor(Season), 
+               T_1_Seed = factor(T_1_Seed),
+               T_2_Seed = factor(T_2_Seed),
+               T_1_Win = factor(T_1_Win))
+    return(df)
+}
+
+#Train/Test Split
+train_test <- function(df, set = 'train', split.seed = 123){
+    set.seed(split.seed) #helps return same split each time
+    df %<>% mutate(split = sample.split(T_1_Win, SplitRatio=0.8))
+    
+    #Create 2 DFs for test and train
+    train <- filter(df, split == T) %>% select(-split, -Season, -T_1_ID, -T_2_ID)
+    test <- filter(df, split == F) %>% select(-split, -Season, -T_1_ID, -T_2_ID)
+    
+    if (set == 'train'){ return(train) }
+    else { return(test) }
+}
+
+#Initial DF Creation----
 #Set up dataframe
 tourney_games <- #randomly shuffle winners/losers so the inner is not always the same column
     dfs$MNCAATourneyCompactResults %>% 
@@ -13,55 +89,25 @@ tourney_games <- #randomly shuffle winners/losers so the inner is not always the
            OT = if_else(NumOT == 0, 0, 1)) %>% 
     select(T_1_Win, Season, T_1_ID, T_2_ID, OT)
 
-#Remove region indicator from tournament seed before adding to feature df
-tourney_seeds <- dfs$MNCAATourneySeeds %>% mutate(Seed = parse_number(Seed))
-    
-#Add team seeds to the feature df
+#Add new features to DF
 tourney_games %<>% 
-    left_join(.,
-              tourney_seeds %>% rename(T_1_ID = TeamID, T_1_Seed = Seed),
-              by = c("Season", "T_1_ID")) %>% 
-    left_join(.,
-              tourney_seeds %>% rename(T_2_ID = TeamID, T_2_Seed = Seed),
-              by = c("Season", "T_2_ID"))
+    add_seeds(.) %>% 
+    add_RegSznStats(.) %>% 
+    convert_to_factor(.)
 
-#Add season winning % and avg pts for and against
-reg_szn_stats <-
-    left_join(dfs$MRegularSeasonCompactResults %>% 
-              group_by(Season, TeamID = WTeamID) %>% 
-              summarise(Wins = n(), #calculate wins/losses/pts when team wins
-                        PtsFor_W = sum(WScore),
-                        PtsAgn_W = sum(LScore)),
-          dfs$MRegularSeasonCompactResults %>% 
-              group_by(Season, TeamID = LTeamID) %>% 
-              summarise(Losses = n(), #calculate wins/losses/pts when team loses
-                        PtsFor_L = sum(LScore),
-                        PtsAgn_L = sum(WScore)),
-          by = c("Season", "TeamID")) %>% 
-    mutate(WinPct = Wins / (Wins + Losses),
-           AvgPtsFor = (PtsFor_W + PtsFor_L) / (Wins + Losses),
-           AvgPtsAgn = (PtsAgn_W + PtsAgn_L) / (Wins + Losses))
+train <- train_test(tourney_games)
+test <- train_test(tourney_games, set = 'test')
 
-tourney_games %<>% 
-    left_join(.,
-              reg_szn_stats %>% 
-                  select(T_1_ID = TeamID, T_1_WinPct = WinPct,
-                         T_1_AvgPtsFor = AvgPtsFor, T_1_AvgPtsAgn = AvgPtsAgn),
-              by = c("Season", "T_1_ID")) %>% 
-    left_join(.,
-              reg_szn_stats %>% 
-                  select(T_2_ID = TeamID, T_2_WinPct = WinPct,
-                         T_2_AvgPtsFor = AvgPtsFor, T_2_AvgPtsAgn = AvgPtsAgn),
-              by = c("Season", "T_2_ID"))
+train <- tourney_games %>% filter(Season != 2019) %>% select(-Season, -T_1_ID, -T_2_ID)
+test <- tourney_games %>% filter(Season == 2019) %>% select(-Season, -T_1_ID, -T_2_ID)
 
+#Model 1----
+# Create a Random Forest model with default parameters
+model1 <- randomForest(T_1_Win ~ ., data = train)
+model1
 
-#Change TeamIDs and Season to a factor
-set.seed(123)
-tourney_games %<>%
-    mutate(Season = factor(Season), 
-           T_1_ID = factor(T_1_ID),
-           T_2_ID = factor(T_2_ID),
-           split = sample.split(T_1_Win, SplitRatio=0.8))
-
-
+# Predicting on train set
+predTest <- predict(model1, test, type = "class")
+# Checking classification accuracy
+table(predTest, test$T_1_Win)
 
