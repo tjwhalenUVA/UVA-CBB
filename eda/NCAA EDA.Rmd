@@ -23,6 +23,7 @@ library(magrittr)
 library(ggthemes)
 library(gridExtra)
 library(janitor)
+library(ggrepel)
 ```
 
 ```{r helpers, include=FALSE}
