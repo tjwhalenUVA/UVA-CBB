@@ -94,7 +94,9 @@ convert_to_factor <- function(df){
         mutate(Season = factor(Season), 
                T_1_Seed = factor(T_1_Seed),
                T_2_Seed = factor(T_2_Seed),
-               T_1_Win = factor(T_1_Win))
+               T_1_Win = factor(T_1_Win),
+               T_1_MadeTourn = factor(T_1_MadeTourn),
+               T_2_MadeTourn = factor(T_2_MadeTourn))
     return(df)
 }
 
@@ -117,11 +119,11 @@ tourney_games <- #randomly shuffle winners/losers so the inner is not always the
     dfs$MNCAATourneyCompactResults %>% 
     mutate(T_1_Win = rbinom(nrow(dfs$MNCAATourneyCompactResults), 1, 0.5), #Target variable
            #Set team 1 to WTeamID if target says T1 wins
-           T_1_ID = if_else(T_1_Win == 1, WTeamID, LTeamID),
+           T_1_ID = ifelse(T_1_Win == 1, WTeamID, LTeamID),
            #Set team 2 to LTeamID if target says T1 wins
-           T_2_ID = if_else(T_1_Win == 1, LTeamID, WTeamID),
+           T_2_ID = ifelse(T_1_Win == 1, LTeamID, WTeamID),
            #Feature indicating wether game went to OT or not
-           OT = if_else(NumOT == 0, 0, 1)) %>% 
+           OT = ifelse(NumOT == 0, 0, 1)) %>% 
     select(T_1_Win, Season, T_1_ID, T_2_ID, OT)
 
 #Add new features to DF
@@ -153,6 +155,24 @@ importance(model_1)
 varImpPlot(model_1)
 
 #Model 2----
+#https://machinelearningmastery.com/tune-machine-learning-algorithms-in-r/
+library(caret)
 
-model_2 <- randomForest(T_1_Win ~ ., data = train, nodesize = 5)
-model_2
+control <- trainControl(method="repeatedcv", number=10, repeats=3)
+seed <- 7
+metric <- "Accuracy"
+
+#Baseline
+set.seed(seed)
+mtry <- sqrt(ncol(train))
+tunegrid <- expand.grid(.mtry=mtry)
+rf_default <- train(T_1_Win~., data=train, method="rf", metric=metric, tuneGrid=tunegrid, trControl=control)
+print(rf_default)
+
+# Random Search
+control <- trainControl(method="repeatedcv", number=10, repeats=3, search="random")
+set.seed(seed)
+mtry <- sqrt(ncol(train))
+rf_random <- train(T_1_Win~., data=train, method="rf", metric=metric, tuneLength=15, trControl=control)
+print(rf_random)
+plot(rf_random)
