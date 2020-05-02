@@ -5,6 +5,9 @@
 
 data/*
 
-eda/NCAA_EDA_cache/*
-eda/NCAA_EDA_files/*
+eda/NCAA-EDA_cache/*
+eda/NCAA-EDA_files/*
 eda/test_file.R
+
+models/grid_models/*
+models/rf_baseline
