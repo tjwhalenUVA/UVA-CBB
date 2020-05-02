@@ -1,7 +1,19 @@
-library(randomForest)
-library(caTools)
+library(vroom)
+library(tidyverse)
+library(magrittr)
+library(h2o)
 
-#Additional DFs----
+#Read in Data --------------------------------------------------------------
+folder <- 'C:/Users/Jake/Documents/Projects/UVA-CBB/data/MDataFiles_Stage1'
+files <- list.files(folder)
+dfs <- list()
+
+for (f in files){
+    df.name <- str_replace(f, '.csv', '')
+    dfs[[df.name]] <- vroom(file.path(folder, f))
+}
+
+#Additional DFs --------------------------------------------------------------
 #Create features from other DFs to add to the data for modeling
 #Regular Season Statistics
 reg_szn_stats <-
@@ -25,7 +37,7 @@ reg_szn_stats %<>%
            AvgPtsAgn = (PtsAgn_W + PtsAgn_L) / (Wins + Losses)) #Average Points against
 
 
-#Feature Adding Functions----
+#Feature Adding Functions ------------------------------------------------
 #Add team seeds to the feature df
 add_seeds <- function(df){
     tourney_seeds <- dfs$MNCAATourneySeeds %>% mutate(Seed = parse_number(Seed))
@@ -101,19 +113,19 @@ convert_to_factor <- function(df){
 }
 
 #Train/Test Split
-train_test <- function(df, set = 'train', split.seed = 123){
-    set.seed(split.seed) #helps return same split each time
-    df %<>% mutate(split = sample.split(T_1_Win, SplitRatio=0.8))
-    
-    #Create 2 DFs for test and train
-    train <- filter(df, split == T) %>% select(-split, -Season, -T_1_ID, -T_2_ID)
-    test <- filter(df, split == F) %>% select(-split, -Season, -T_1_ID, -T_2_ID)
-    
-    if (set == 'train'){ return(train) }
-    else { return(test) }
-}
+# train_test <- function(df, set = 'train', split.seed = 123){
+#     set.seed(split.seed) #helps return same split each time
+#     df %<>% mutate(split = sample.split(T_1_Win, SplitRatio=0.8))
+#     
+#     #Create 2 DFs for test and train
+#     train <- filter(df, split == T) %>% select(-split, -Season, -T_1_ID, -T_2_ID)
+#     test <- filter(df, split == F) %>% select(-split, -Season, -T_1_ID, -T_2_ID)
+#     
+#     if (set == 'train'){ return(train) }
+#     else { return(test) }
+# }
 
-#Initial DF Creation----
+#Initial DF Creation -------------------------------------------------------
 #Set up dataframe
 tourney_games <- #randomly shuffle winners/losers so the inner is not always the same column
     dfs$MNCAATourneyCompactResults %>% 
@@ -134,45 +146,98 @@ tourney_games %<>%
     add_PreSznTourn(.) %>% 
     convert_to_factor(.)
 
-# train <- train_test(tourney_games)
-# test <- train_test(tourney_games, set = 'test')
+#Seperate year to predict (test) from historical tournaments
+train <- 
+    tourney_games %>% filter(Season != 2019) %>% 
+    select(-Season, -T_1_ID, -T_2_ID)
+test <- 
+    tourney_games %>% filter(Season == 2019) %>% 
+    select(-Season, -T_1_ID, -T_2_ID)
 
-train <- tourney_games %>% filter(Season != 2019) %>% select(-Season, -T_1_ID, -T_2_ID)
-test <- tourney_games %>% filter(Season == 2019) %>% select(-Season, -T_1_ID, -T_2_ID)
+#Models ---------------------------------------------------------------------
+#Chalk Model
+"
+Get a result from only choosing the higher seed.
+Ties are decided by end of season ranking (i.e. AP or Coaches Poll)
+"
 
-#Model 1----
-# Create a Random Forest model with default parameters
-model_1 <- randomForest(T_1_Win ~ ., data = train)
-model_1
+#Setting up H2o Cluster ----------------------------------------------------------------------
+localH2O <- h2o.init(nthreads = -1)
+#data to h2o cluster
+train.h2o <- as.h2o(train)
+test.h2o <- as.h2o(test)
+#Variables
+y.dep <- 'T_1_Win'
+x.indep <- names(train)[-1]
 
-# Predicting on train set
-predTest <- predict(model_1, test, type = "class")
-# Checking classification accuracy
-mean(predTest == test$T_1_Win)                    
-table(predTest, test$T_1_Win)
-# To check important variables
-importance(model_1)        
-varImpPlot(model_1)
+#RF ----------------------------------------------------------------------
+# rf_baseline <- h2o.randomForest(x = x.indep, y = y.dep,
+#                                 model_id = "rf_baseline",
+#                                 training_frame = train.h2o,
+#                                 nfolds = 5,
+#                                 seed = 1234,
+#                                 verbose = T)
 
-#Model 2----
-#https://machinelearningmastery.com/tune-machine-learning-algorithms-in-r/
-library(caret)
+# save the model
+# rf_baseline_path <- h2o.saveModel(object=rf_baseline, 
+#                                   path="./models", 
+#                                   force=TRUE)
+# load the model
+rf_baseline <- h2o.loadModel("./models/rf_baseline")
 
-control <- trainControl(method="repeatedcv", number=10, repeats=3)
-seed <- 7
-metric <- "Accuracy"
+h2o.performance(rf_baseline)
+h2o.varimp(rf_baseline)
+h2o.varimp_plot(rf_baseline)
+predict.rf <- as.data.frame(h2o.predict(rf_baseline, test.h2o))
+caret::confusionMatrix(predict.rf$predict, test$T_1_Win)
 
-#Baseline
-set.seed(seed)
-mtry <- sqrt(ncol(train))
-tunegrid <- expand.grid(.mtry=mtry)
-rf_default <- train(T_1_Win~., data=train, method="rf", metric=metric, tuneGrid=tunegrid, trControl=control)
-print(rf_default)
+#RF Grid Search--------------------------------------------------------------
+hyper_params_grid <- list(ntrees = c(50, 100, 150), 
+                          max_depth = c(2, 3, 5),
+                          min_rows = c(1, 2))
 
-# Random Search
-control <- trainControl(method="repeatedcv", number=10, repeats=3, search="random")
-set.seed(seed)
-mtry <- sqrt(ncol(train))
-rf_random <- train(T_1_Win~., data=train, method="rf", metric=metric, tuneLength=15, trControl=control)
-print(rf_random)
-plot(rf_random)
+expand.grid(hyper_params_grid)
+
+rf_grid <- h2o.grid("randomForest", 
+                    x = x.indep, 
+                    y = y.dep,
+                    training_frame = train.h2o,
+                    grid_id = 'rf_grid',
+                    nfolds = 3,
+                    hyper_params = hyper_params_grid,
+                    parallelism = 0)
+
+rf_grid_path <- h2o.saveGrid(grid_directory = "./models/grid_models", 
+                             grid_id = 'rf_grid')
+# Remove everything from the cluster or restart it
+h2o.removeAll()
+rf_grid <- h2o.loadGrid(rf_grid_path)
+
+
+
+models <- h2o.getGrid(grid_id = "rf_grid", sort_by = "accuracy", 
+                      decreasing = TRUE)
+
+
+
+best_rf_acc <- h2o.getModel(models@model_ids[[1]])
+
+h2o.performance(model = best_rf_acc, newdata = test.h2o)
+
+
+rf_grid_predict <- as.data.frame(h2o.predict(best_rf_acc, test.h2o))
+caret::confusionMatrix(rf_grid_predict$predict, test$T_1_Win)
+
+
+#Shutdown h2o Instance-------------------------------------------------------
+h2o.shutdown()
+#DL
+# dlearning.model <- h2o.deeplearning(y = y.dep, x = x.indep, training_frame = train.h2o,
+#                                     epoch = 60,
+#                                     hidden = c(100,100),
+#                                     activation = "Rectifier",
+#                                     seed = 1122)
+# 
+# h2o.performance(dlearning.model)
+# predict.dl2 <- as.data.frame(h2o.predict(dlearning.model, test.h2o))
+# mean(predict.dl2$predict == test$T_1_Win)
