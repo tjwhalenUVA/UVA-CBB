@@ -56,6 +56,12 @@ for (f in files){
 files
 ```
 
+```{r, include=F}
+#In 2010 PAC Ten became PAC 12 after ading Utah and Colorado
+dfs$MTeamConferences %<>%
+  mutate(ConfAbbrev = ifelse(ConfAbbrev == 'pac_ten', 'pac_twelve', ConfAbbrev))
+```
+
 In addition to the files above there are play-by-play records since 2015.
 These files contain individual records for every event takig place during the season.
 There is potential for the data to not be 100% accurate as described on the Kaggle site.
@@ -355,6 +361,73 @@ cnf_v_cnf %>%
 #### Conference Success
 
 ##### Number of Bids
+
+```{r}
+#Dataframe indicating teams that made the final four and championship by year
+mm.ff.teams <-
+    dfs$MNCAATourneyCompactResults %>% 
+    group_by(Season, TeamID = WTeamID) %>% 
+    count() %>% ungroup() %>% 
+    filter(n >= 4) %>% 
+    mutate(FinalFour = 'Yes',
+           RunnerUp = ifelse(n == 5, 'Yes', 'No'),
+           Champion = ifelse(n == 6, 'Yes', 'No'))
+
+#List of conferences that have won a championship
+champion.conferences <-
+    mm.ff.teams %>% 
+    left_join(dfs$MTeamConferences) %>% 
+    filter(Champion == 'Yes') %$% 
+    unique(ConfAbbrev)
+
+#List of conferences that still exist as of the 2020 season end
+active.conferences <-
+    dfs$MTeamConferences %>% 
+    filter(Season == 2020) %$%
+    unique(ConfAbbrev)
+
+#Calculate the Average number of bids and max number of bids a conference gets or has gotten
+bid.summary <-
+    dfs$MNCAATourneySeeds %>% 
+    left_join(dfs$MTeamConferences) %>% 
+    group_by(Season, ConfAbbrev) %>% 
+    count() %>% 
+    group_by(ConfAbbrev) %>% 
+    summarise(YearsAppeared = n(),
+              AvgTeam = mean(n),
+              MaxTeam = max(n)) %>% 
+    mutate(Active = ifelse(ConfAbbrev %in% active.conferences, 'Yes', 'No'),
+           Active = factor(Active, levels = c('Yes', 'No')),
+           Champion = ifelse(ConfAbbrev %in% champion.conferences, 'Yes', 'No'),
+           Champion = factor(Champion, levels = c('Yes', 'No'))) 
+#Function to plot the dataframe bid.summary
+bid_plot <- function(df, var){
+    df %>% 
+        ggplot(aes(y=reorder(ConfAbbrev, (!!as.name(var))), 
+                   x=(!!as.name(var)),
+                   linetype = Active)) +
+        geom_segment(aes(x=0, 
+                         xend=(!!as.name(var)), 
+                         yend=reorder(ConfAbbrev, (!!as.name(var))))) +
+        geom_point(aes(color = Champion, shape = Champion), size = 2.5) +
+        scale_color_manual(values = c('green', 'grey40')) +
+        labs(y = 'Conference') +
+        my_theme +
+        theme(panel.grid.major.y = element_blank())
+}
+```
+
+```{r, fig.height=8}
+bid_plot(bid.summary, 'AvgTeam') +
+  labs(title = 'Average Bids per Conference since 1985',
+       x='March Madness Bids')
+```
+
+```{r, fig.height=8}
+bid_plot(bid.summary, 'MaxTeam') +
+  labs(title = 'Maximum Number of Bids since 1985',
+       x='March Madness Bids')
+```
 
 ##### Number of Championships
 
