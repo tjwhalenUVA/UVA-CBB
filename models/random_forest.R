@@ -4,7 +4,7 @@ library(magrittr)
 library(h2o)
 
 #Read in Data --------------------------------------------------------------
-folder <- 'C:/Users/Jake/Documents/Projects/UVA-CBB/data/MDataFiles_Stage1'
+folder <- paste0(getwd(), '/data/MDataFiles_Stage1')
 files <- list.files(folder)
 dfs <- list()
 
@@ -160,6 +160,7 @@ test <-
 Get a result from only choosing the higher seed.
 Ties are decided by end of season ranking (i.e. AP or Coaches Poll)
 "
+
 
 #Setting up H2o Cluster ----------------------------------------------------------------------
 localH2O <- h2o.init(nthreads = -1)
