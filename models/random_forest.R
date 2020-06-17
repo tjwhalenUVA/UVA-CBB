@@ -36,16 +36,17 @@ x.indep <- names(train)[-1]
 #                                 verbose = T)
 
 # save the model
-# rf_baseline_path <- h2o.saveModel(object=rf_baseline, 
-#                                   path="./models", 
-#                                   force=TRUE)
-# load the model
-rf_baseline <- h2o.loadModel("./models/rf_baseline")
+# rf_baseline_saved <- h2o.saveModel(object=rf_baseline,
+#                                    path="./models/model_files/random_forest",
+#                                    force=TRUE)
 
-h2o.performance(rf_baseline)
-h2o.varimp(rf_baseline)
-h2o.varimp_plot(rf_baseline)
-predict.rf <- as.data.frame(h2o.predict(rf_baseline, test.h2o))
+# load the model
+rf_baseline_load <- h2o.loadModel("models/model_files/random_forest/rf_baseline")
+
+h2o.performance(rf_baseline_load)
+h2o.varimp(rf_baseline_load)
+h2o.varimp_plot(rf_baseline_load)
+predict.rf <- as.data.frame(h2o.predict(rf_baseline_load, test.h2o))
 caret::confusionMatrix(predict.rf$predict, test$T_1_Win)
 
 #RF Grid Search--------------------------------------------------------------
@@ -64,16 +65,19 @@ rf_grid <- h2o.grid("randomForest",
                     hyper_params = hyper_params_grid,
                     parallelism = 0)
 
-rf_grid_path <- h2o.saveGrid(grid_directory = "./models/grid_models", 
+rf_grid_path <- h2o.saveGrid(grid_directory = "models/model_files/random_forest/grid_search", 
                              grid_id = 'rf_grid')
 # Remove everything from the cluster or restart it
 h2o.removeAll()
-rf_grid <- h2o.loadGrid(rf_grid_path)
+h2o.shutdown()
+
+h2o.init()
+
+rf_grid_load <- h2o.loadGrid('models/model_files/random_forest/grid_search/rf_grid')
 
 
 
-models <- h2o.getGrid(grid_id = "rf_grid", sort_by = "accuracy", 
-                      decreasing = TRUE)
+models <- h2o.getGrid(grid_id = "rf_grid", sort_by = "accuracy", decreasing = TRUE)
 
 
 
