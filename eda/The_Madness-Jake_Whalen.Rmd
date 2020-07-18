@@ -1,0 +1,391 @@
+---
+title: "Madness in March?"
+author: "Jake Whalen"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F,
+                      message = F,
+                      fig.width = 8, fig.height = 3)
+```
+
+```{r packages, include=FALSE}
+library(vroom)
+library(tidyverse)
+library(magrittr)
+library(ggthemes)
+library(gridExtra)
+library(janitor)
+library(ggrepel)
+library(flextable)
+library(cowplot)
+```
+
+```{r helpers, include=FALSE}
+my_theme <- 
+    theme_solarized() +
+    theme(panel.background = element_rect(color='black'))
+```
+
+```{r data, cache=TRUE}
+folder <- 'C:/Users/Jake/Documents/Projects/UVA-CBB/data/MDataFiles_Stage1'
+files <- list.files(folder)
+dfs <- list()
+
+for (f in files){
+    df.name <- str_replace(f, '.csv', '')
+    dfs[[df.name]] <- vroom(file.path(folder, f))
+}
+```
+
+```{r fix-P12, include=F}
+#In 2010 PAC Ten became PAC 12 after adding Utah and Colorado
+dfs$MTeamConferences %<>%
+  mutate(ConfAbbrev = ifelse(ConfAbbrev == 'pac_ten', 'pac_twelve', ConfAbbrev))
+```
+
+# Background
+
+The term 'March Madness' wasn't associated with the Men's Division I college basketball tournament until 1982 when Brent Musberger used it during his coverage of the tournament [March Madness History](https://www.ncaa.com/news/basketball-men/article/2020-05-15/march-madness-history-ultimate-guide#:~:text=The%20term%20'March%20Madness'%20was,coverage%20of%20the%201982%20tournament.).
+The term "Madness" refers to the seemingly unpredictable nature of the tournament.
+An example of this madness is in 2018 when the 16 seed University of Maryland Baltimore College (UMBC) upset then number 1 seed University of Virginia (UVA).
+Prior to that game a 1 seed had never lost to a 16 seed which made this upset so unthinkable (and unbearable for us UVA fans).
+This is now considered by many to be one of the biggest upsets in sports history.
+
+So what really gives March it's "Madness".
+Is it the closeness of games at the end and seemingly countless buzzer beaters?
+Is it the miracle comebacks?
+Is it simply David defeating Goliath (seed upsets)?
+The following analysis aims to look at some possible explanations for what really gives March it's "Madness" and debunks others where March is no "Madder" than the rest of the season (Nov-Feb).
+
+# Close Games
+
+Compare scores (possibly in game variance).
+
+# Comebacks
+
+# David vs. Goliath
+
+The graphic below shows the winning percentage amongst seed matchups. 
+The seeds denoted on the y-axis are the winners while the seeds across the x-axis are the losers. 
+The diagonal (equal seeded matchups) were removed from this chart since there was no comparison (1 seed has a 100% win rate against 1 seeds with a 100% losing rate at the same time). 
+A blank indicates the two seeds have never matched up before in the tournament. 
+When viewing this chart it is important to remind yourself that not all of these matchups are as common as others. 
+For instance a 1 vs 16 and a 8 vs 9 are guaranteed to be played four times every single tournament because those are first round games.
+
+A few quick takeaways from the graphic below: 
+
+* 1 Seeds:
+    + Have lost to a 16 only one time in the history of the tournament.
+    + As expected, have a greater than 50% winning percentage against all other seeds.
+    + Have never faced a 14 or 15 seed due to these lower seeds never advancing far enough (Elite 8).
+    + Struggle with the 11 seeds, only posting a 57% winning percentage.
+* Being a 2 seed doesn't look as good as it sounds.
+    + 0 wins over 5 and 9 seeds.
+    + An abysmal 29% winning percentage over 8 seeds.
+* In recent memory the 5 vs 12 is a common upset pick in many brackets however the 12 seed only holds a 36% winning percentage in this matchup.
+
+```{r seed_v_seed_map, fig.width=6, fig.height=6}
+df.seed.results <-
+    dfs$MNCAATourneyCompactResults %>% 
+    select(Season, DayNum, WTeamID, LTeamID) %>% 
+    left_join(., 
+              dfs$MNCAATourneySeeds %>% rename(WTeamID = TeamID, WSeed = Seed),
+              by = c('Season', 'WTeamID')) %>% 
+    left_join(., 
+              dfs$MNCAATourneySeeds %>% rename(LTeamID = TeamID, LSeed = Seed),
+              by = c('Season', 'LTeamID')) %>% 
+    mutate(WSeed = str_replace(WSeed, 'a', ''),
+           WSeed = str_replace(WSeed, 'b', ''),
+           LSeed = str_replace(LSeed, 'a', ''),
+           LSeed = str_replace(LSeed, 'b', ''),
+           WReg = substr(WSeed, 1, 1),
+           LReg = substr(LSeed, 1, 1),
+           W_L_Regions = paste(WReg, LReg, sep = "/"),
+           WSeed = as.numeric(substr(WSeed, 2, 3)),
+           LSeed = as.numeric(substr(LSeed, 2, 3)))
+
+df.wvl.seed <-
+    df.seed.results %>%
+    group_by(WSeed, LSeed) %>% 
+    summarise(WSeedWins = n())
+
+df.wvl.seed %>% 
+    left_join(., 
+              df.wvl.seed %>% 
+                  rename(LSeed = WSeed, WSeed = LSeed,
+                         LSeedWins = WSeedWins),
+              by = c('WSeed', 'LSeed')) %>%
+    filter(WSeed != LSeed) %>% 
+    mutate(LSeedWins = ifelse(is.na(LSeedWins), 0, LSeedWins),
+           WSeedWinPct = WSeedWins / (WSeedWins + LSeedWins)) %>%
+    ggplot(aes(x=LSeed, y=WSeed, fill=WSeedWinPct)) +
+    geom_tile() +
+    geom_text(aes(label = round(WSeedWinPct, 2))) +
+    geom_segment(aes(x=0.5, y=0.5, xend=16.5, yend=16.5)) +
+    geom_hline(yintercept = 0.5:16.5) +
+    geom_vline(xintercept = 0.5:16.5) +
+    scale_y_continuous(trans = "reverse", breaks = 1:16, expand = c(0,0)) +
+    scale_x_continuous(position = "top", breaks = 1:16, expand = c(0,0)) +
+    scale_fill_gradient2(low = 'red', mid='grey',
+                         high='green', midpoint = 0.5) +
+    my_theme +
+    theme(axis.ticks = element_blank(),
+          legend.position = 'bottom',
+          panel.grid.major = element_blank()) +
+    labs(x = 'Losing Team Seed', y = 'Winning Team Seed')
+```
+
+# Team Performance
+
+```{r combine-data}
+combined <- function(df){
+    winners <-
+        df %>% 
+        select(Season, DayNum, NumOT, starts_with('W', ignore.case = F), -WLoc) %>% 
+        mutate(Result = 'Win')
+    
+    losers <-
+        df %>% 
+        select(Season, DayNum, NumOT, starts_with('L', ignore.case = F)) %>% 
+        mutate(Result = 'Lose')
+    
+    names(winners) <- str_replace(names(winners), 'W', '')
+    names(losers) <- str_replace(names(losers), 'L', '')
+    
+    return(bind_rows(winners, losers))
+}
+reg_szn <- combined(dfs$MRegularSeasonDetailedResults)
+mar_mdn <- combined(dfs$MNCAATourneyDetailedResults)
+
+#Only include teams stats that made the tournmanet that year
+reg_szn %<>% 
+    left_join(.,
+              unique.data.frame(select(mar_mdn, Season, TeamID)) %>% 
+                  mutate(MT = 'Yes'),
+              by = c("Season", "TeamID")) %>% 
+    filter(MT == 'Yes') %>% 
+    select(-MT)
+```
+
+```{r score-metrics, include=F}
+bind_rows(reg_szn %>% mutate(group = 'Regular Season'),
+          mar_mdn %>% mutate(group = 'March Madness')) %>% 
+    .[,6:20] %>% 
+    gather(Metric, Value, -Result, -group) %>% 
+    filter(Metric %in% c("FGM", "FGA", "FGM3", "FGA3", "FTM", "FTA", "Ast")) %>% 
+    ggplot(aes(color = Result, x=Value)) +
+    geom_density(adjust = 3) +
+    facet_grid(group~Metric, scales = 'free') +
+    theme(axis.text.y = element_blank(),
+          axis.ticks.y = element_blank(),
+          axis.title.y = element_blank()) +
+    labs(title='Scoring Plays')
+```
+
+```{r aux-metrics, include=F}
+bind_rows(reg_szn %>% mutate(group = 'Regular Season'),
+          mar_mdn %>% mutate(group = 'March Madness')) %>% 
+    .[,6:20] %>% 
+    gather(Metric, Value, -Result, -group) %>% 
+    filter(Metric %in% c("OR", "DR", "TO", "Stl", "Blk", "PF")) %>% 
+    ggplot(aes(color = Result, x=Value)) +
+    geom_density(adjust = 3) +
+    facet_grid(group~Metric, scales = 'free') +
+    theme(axis.text.y = element_blank(),
+          axis.ticks.y = element_blank(),
+          axis.title.y = element_blank()) +
+    labs(title='Auxiliary Plays')
+```
+
+```{r percent-change}
+typology <- data.frame(
+    col_keys = c('Stat Group', 'Metric', 
+                 'March Madness Lose', 'Regular Season Lose', 'Change Lose',
+                 'March Madness Win', 'Regular Season Win',  'Change Win'),
+    what = c('Stat Group', "Metric", 
+             "Lose", "Lose", "Lose", 
+             "Win", "Win", "Win"),
+    measure = c('Stat Group', "Metric", 
+                "March Madness", "Regular Season", "Change", 
+                "March Madness", "Regular Season", "Change"),
+    stringsAsFactors = FALSE )
+
+per_chg_ft <-
+    bind_rows(reg_szn %>% mutate(group = 'Regular Season'),
+          mar_mdn %>% mutate(group = 'March Madness')) %>% 
+    .[,6:20] %>% 
+    gather(Metric, Value, -Result, -group) %>% 
+    group_by(Result, group, Metric) %>% 
+    summarise(Mean = mean(Value)) %>%
+    pivot_wider(names_from = group, values_from = Mean) %>%
+    mutate(Change = scales::percent((`March Madness` - `Regular Season`) / `Regular Season`,
+                                    accuracy = 0.1),
+           Metric = factor(Metric,
+                           levels = c('FGA', 'FGM', 'FGA3', 'FGM3', 'FTA', 'FTM', 
+                                      'Ast', 'OR', 'DR', 'TO', 'Stl', 'Blk', 'PF')),
+           'Stat Group' = if_else(Metric %in% c('FGA', 'FGM', 'FGA3', 'FGM3', 'FTA', 'FTM', 'Ast'),
+                                  'Scoring', 'Auxiliary')) %>%
+    pivot_wider(id_cols = c(`Stat Group`, Metric), names_from = Result, 
+                names_sep = ' ',
+                values_from = c(`Regular Season`, `March Madness`, Change)) %>% 
+    select(`Stat Group`, Metric, contains('Lose'), contains('Win')) %>% 
+    arrange(Metric) %>% 
+    flextable(.) %>%
+    set_header_df(mapping = typology, key = "col_keys") %>% 
+    merge_h(part = "header") %>% 
+    merge_v(part = "header") %>%
+    merge_v(j='Stat Group') %>% 
+    theme_booktabs() %>% 
+    colformat_num(c(3,4,6,7)) %>% 
+    align(j=2, align = 'center') %>% 
+    align(j=c(5,8), align = 'right') %>% 
+    align(align = 'center', part = 'header')
+
+knitr::knit_print(per_chg_ft)
+```
+
+# UVa vs UMBC Upset
+
+```{r}
+umbc_id <- 1420
+uva_id <- 1438
+
+df_umbc_upset <-
+    bind_rows(combined(dfs$MRegularSeasonDetailedResults) %>% 
+              filter(Season == 2018 & TeamID == umbc_id) %>% 
+              mutate(group = 'Regular Season'),
+          combined(dfs$MNCAATourneyDetailedResults) %>% 
+              filter(Season == 2018 & TeamID == umbc_id & Result == 'Win') %>% 
+              mutate(group = 'March Madness'))
+
+df_uva_upset <-
+    bind_rows(combined(dfs$MRegularSeasonDetailedResults) %>% 
+              filter(Season == 2018 & TeamID == uva_id) %>% 
+              mutate(group = 'Regular Season'),
+          combined(dfs$MNCAATourneyDetailedResults) %>% 
+              filter(Season == 2018 & TeamID == uva_id & Result == 'Lose') %>% 
+              mutate(group = 'March Madness'))
+
+upset_plt <- function(df, x, y, ref_lines, colors) {
+    df %>% 
+        ggplot(aes_string(x=x, y=y, color='group')) +
+        geom_point(stat = 'identity', size=2, show.legend = F) +
+        geom_abline(slope = ref_lines, intercept = 0, linetype='dashed') +
+        theme_classic() +
+        scale_color_manual(values = colors)
+}
+```
+
+```{r}
+plot_grid(
+  upset_plt(df = df_umbc_upset, x='FGA', y='FGM', 
+          ref_lines = seq(1, 0.25, length.out = 4),
+          colors = c('gold', 'black')) +
+    scale_x_continuous(limits = c(0, 80)) +
+    scale_y_continuous(limits = c(0, 40)),
+  upset_plt(df = df_uva_upset, x='FGA', y='FGM', 
+          ref_lines = seq(1, 0.25, length.out = 4),
+          colors = c('orange', 'blue')) +
+    scale_x_continuous(limits = c(0, 80)) +
+    scale_y_continuous(limits = c(0, 40))
+)
+
+```
+
+```{r}
+plot_grid(
+  upset_plt(df = df_umbc_upset, x='FGA3', y='FGM3', 
+          ref_lines = seq(1, 0.25, length.out = 4),
+          colors = c('gold', 'black')) +
+    scale_x_continuous(limits = c(0, 45)) +
+    scale_y_continuous(limits = c(0, 20)),
+  upset_plt(df = df_uva_upset, x='FGA3', y='FGM3', 
+          ref_lines = seq(1, 0.25, length.out = 4),
+          colors = c('orange', 'blue')) +
+    scale_x_continuous(limits = c(0, 45)) +
+    scale_y_continuous(limits = c(0, 20))
+)
+```
+
+```{r}
+plot_grid(
+  upset_plt(df = df_umbc_upset, x='FTA', y='FTM', 
+          ref_lines = seq(1, 0.25, length.out = 4),
+          colors = c('gold', 'black')) +
+    scale_x_continuous(limits = c(0, 30)) +
+    scale_y_continuous(limits = c(0, 20)),
+  upset_plt(df = df_uva_upset, x='FTA', y='FTM', 
+          ref_lines = seq(1, 0.25, length.out = 4),
+          colors = c('orange', 'blue')) +
+    scale_x_continuous(limits = c(0, 30)) +
+    scale_y_continuous(limits = c(0, 20))
+)
+```
+
+```{r}
+plot_grid(
+  upset_plt(df = df_umbc_upset, x='OR', y='DR', 
+          ref_lines = 0,
+          colors = c('gold', 'black')) +
+    scale_x_continuous(limits = c(1, 25)) +
+    scale_y_continuous(limits = c(15, 40)),
+  upset_plt(df = df_uva_upset, x='OR', y='DR', 
+          ref_lines = 0,
+          colors = c('orange', 'blue')) +
+    scale_x_continuous(limits = c(1, 25)) +
+    scale_y_continuous(limits = c(15, 40))
+)
+```
+
+```{r}
+plot_grid(
+  upset_plt(df = df_umbc_upset, x='TO', y='Ast', 
+          ref_lines = 1:3,
+          colors = c('gold', 'black')) +
+    scale_x_continuous(limits = c(2, 20)) +
+    scale_y_continuous(limits = c(5, 25)),
+  upset_plt(df = df_uva_upset, x='TO', y='Ast', 
+          ref_lines = 1:3,
+          colors = c('orange', 'blue')) +
+    scale_x_continuous(limits = c(2, 20)) +
+    scale_y_continuous(limits = c(5, 25))
+)
+```
+
+```{r}
+plot_grid(
+  upset_plt(df = df_umbc_upset, x='Blk', y='Stl', 
+          ref_lines = -1,
+          colors = c('gold', 'black')) +
+    scale_x_continuous(limits = c(0, 8)) +
+    scale_y_continuous(limits = c(2, 16)),
+  upset_plt(df = df_uva_upset, x='Blk', y='Stl', 
+          ref_lines = -1,
+          colors = c('orange', 'blue')) +
+    scale_x_continuous(limits = c(0, 8)) +
+    scale_y_continuous(limits = c(2, 16))
+)
+```
+
+```{r}
+umbc <-
+  df_umbc_upset %>% 
+    ggplot(aes(x=PF, fill=group)) +
+    geom_histogram(color='black', binwidth = 1, show.legend = F) +
+    theme_classic() +
+    labs(x='Number of Fouls', y='Games') +
+    scale_fill_manual(values = c('gold', 'black'))
+
+uva <-
+  df_uva_upset %>% 
+    ggplot(aes(x=PF, fill=group)) +
+    geom_histogram(color='black', binwidth = 1, show.legend = F) +
+    theme_classic() +
+    labs(x='Number of Fouls', y='Games') +
+    scale_fill_manual(values = c('orange', 'blue'))
+
+plot_grid(umbc, uva)
+```
+
