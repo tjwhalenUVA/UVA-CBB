@@ -11,7 +11,6 @@
 
 <meta name="author" content="Jake Whalen" />
 
-<meta name="date" content="2020-03-22" />
 
 <title>NCAA Men’s College Basketball Analysis</title>
 
@@ -1583,18 +1582,17 @@ div.tocify {
 
 <h1 class="title toc-ignore">NCAA Men’s College Basketball Analysis</h1>
 <h4 class="author">Jake Whalen</h4>
-<h4 class="date">March 22, 2020</h4>
 
 </div>
 
 
 <div id="purpose" class="section level1">
 <h1><span class="header-section-number">1</span> Purpose</h1>
-<p>The purpose of this project is to explore the Mens NCAA March Madness (MM) data for insight into what gives teams a winning advantage.</p>
+<p>The purpose of this project is to explore the Mens NCAA March Madness (MM) data for insight into what gives teams a winning advantage. The findings here will help to provide a starting point for building a model that predicts winners.</p>
 </div>
 <div id="data" class="section level1">
 <h1><span class="header-section-number">2</span> Data</h1>
-<p>The data for this project was downloaded from the <a href="https://www.kaggle.com/c/march-madness-analytics-2020/data">Google Cloud &amp; NCAA March Madness Analytics</a> Kaggle competition. The project will focus on the data from the NCAA Men’s league. The list of names below are the data files included for this analysis. The data goes back to 1985. The reason for cutting off at 1985 is because this was the first year the tournament expanded to 64 teams, similar to today but without the 4 play-in teams.</p>
+<p>The data for this project was downloaded from the <a href="https://www.kaggle.com/c/march-madness-analytics-2020/data">Google Cloud &amp; NCAA March Madness Analytics</a> Kaggle competition. The project focuses on the data from the NCAA Men’s league. The list of data files below were included in this analysis. The data goes back to 1985. The reason for cutting off at 1985 is because that was the first year the tournament expanded to 64 teams, the current format. Although today there are 68 teams due to the addition of 4 play-in games that take place in the days leading up to the start of the tournament.</p>
 <pre class="r"><code>folder &lt;- &#39;C:/Users/Jake/Documents/Projects/UVA-CBB/data/MDataFiles_Stage1&#39;
 files &lt;- list.files(folder)
 dfs &lt;- list()
@@ -1614,7 +1612,7 @@ files</code></pre>
 ## [15] &quot;MSecondaryTourneyCompactResults.csv&quot; &quot;MSecondaryTourneyTeams.csv&quot;         
 ## [17] &quot;MTeamCoaches.csv&quot;                    &quot;MTeamConferences.csv&quot;               
 ## [19] &quot;MTeams.csv&quot;                          &quot;MTeamSpellings.csv&quot;</code></pre>
-<p>In addition to the files above there are play-by-play records since 2015. These files contain individual records for every event takig place during the season. There is potential for the data to not be 100% accurate as described on the Kaggle site.</p>
+<p>In addition to the files above there are play-by-play records since 2015. These files contain individual records for every event that occured in every game. There is potential for the data to not be 100% accurate as described on the Kaggle site. For this reason and because it is only available for the last 5 seasons I have decided to exclude the play-by-play from this analysis.</p>
 <pre class="r"><code># folder &lt;- &#39;C:/Users/Jake/Documents/Projects/UVA-CBB/data&#39;
 # files &lt;- list.files(folder, pattern = &quot;MEvents&quot;)
 # pbp &lt;- list()
@@ -1627,7 +1625,7 @@ files</code></pre>
 </div>
 <div id="exploratory-data-analysis-eda" class="section level1">
 <h1><span class="header-section-number">3</span> Exploratory Data Analysis (EDA)</h1>
-<p>Some of the data files supplied contain useful metadata to go along with some of the other more detailed files. These files include Cities, MGameCities, Conferences, MNCAATourneySeedRoundSlots, MSeasons, MTeamConferences, MNCAATourneySlots, MConferenceTourneyGames, and MTeamSpellings. The data from these files will be incorporated into the analysis later on but there is not much to discover from these files alone.</p>
+<p>The following sections show the results of the analysis done to identify the patterns and trends in winners. This is not an exhaustive analysis of all possible patterns and trends. Some of the findings support well known patterns (i.e. higher seeds beat lower seeds more frequently) while others attempt to uncover lesser known patterns.</p>
 <div id="the-growth-of-a-league" class="section level2">
 <h2><span class="header-section-number">3.1</span> The Growth of a League</h2>
 <p>The <strong>MTeams</strong> dataframe contains the TeamID, team name, and first/last season each team was active in. There have been 367 Division 1 (D1) men’s teams that have played at least one seson since 1985 (first season recorded in data). In 1985 there were 282 active D1 men’s teams. There were 353 active teams in the most recent college basketball season (2019-2020). The chart below shows the growth over time in the number of men’s D1 basketball teams. The chart shows a steady growth in the number of teams added up until the late 2000’s. After 2010 the growth has slowed down.</p>
@@ -1939,22 +1937,18 @@ bid_plot &lt;- function(df, var){
 <div id="regular-season-rankings" class="section level2">
 <h2><span class="header-section-number">3.5</span> Regular Season Rankings</h2>
 <p>MMasseyOrdinals</p>
+<!-- # Asking the Data Questions -->
+<!-- * Coaching changes -->
+<!-- * Similarity between reg season and playoffs -->
+<!-- * Distance from home in tourney -->
+<!-- * Best region to be in to win it all? -->
+<!-- * Do regular season matchups determine MM outcome? -->
 </div>
-</div>
-<div id="asking-the-data-questions" class="section level1">
-<h1><span class="header-section-number">4</span> Asking the Data Questions</h1>
-<ul>
-<li>Coaching changes</li>
-<li>Similarity between reg season and playoffs</li>
-<li>Distance from home in tourney</li>
-<li>Best region to be in to win it all?</li>
-<li>Do regular season matchups determine MM outcome?</li>
-</ul>
 </div>
 <div id="conclusions" class="section level1">
-<h1><span class="header-section-number">5</span> Conclusions</h1>
+<h1><span class="header-section-number">4</span> Conclusions</h1>
 <div id="what-gives-teams-an-advantage" class="section level2">
-<h2><span class="header-section-number">5.1</span> What gives Teams an Advantage?</h2>
+<h2><span class="header-section-number">4.1</span> What gives Teams an Advantage?</h2>
 </div>
 </div>
 
