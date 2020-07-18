@@ -1,7 +1,6 @@
 ---
 title: "NCAA Men's College Basketball Analysis"
 author: "Jake Whalen"
-date: "March 22, 2020"
 output: 
     html_document:
       code_folding: hide
@@ -35,14 +34,16 @@ my_theme <-
 # Purpose
 
 The purpose of this project is to explore the Mens NCAA March Madness (MM) data for insight into what gives teams a winning advantage.
+The findings here will help to provide a starting point for building a model that predicts winners.
 
 # Data
 
 The data for this project was downloaded from the [Google Cloud & NCAA March Madness Analytics](https://www.kaggle.com/c/march-madness-analytics-2020/data) Kaggle competition.
-The project will focus on the data from the NCAA Men's league.
-The list of names below are the data files included for this analysis.
+The project focuses on the data from the NCAA Men's league.
+The list of data files below were included in this analysis.
 The data goes back to 1985.
-The reason for cutting off at 1985 is because this was the first year the tournament expanded to 64 teams, similar to today but without the 4 play-in teams.
+The reason for cutting off at 1985 is because that was the first year the tournament expanded to 64 teams, the current format.
+Although today there are 68 teams due to the addition of 4 play-in games that take place in the days leading up to the start of the tournament.
 
 ```{r data, cache=TRUE}
 folder <- 'C:/Users/Jake/Documents/Projects/UVA-CBB/data/MDataFiles_Stage1'
@@ -57,14 +58,15 @@ files
 ```
 
 ```{r, include=F}
-#In 2010 PAC Ten became PAC 12 after ading Utah and Colorado
+#In 2010 PAC Ten became PAC 12 after adding Utah and Colorado
 dfs$MTeamConferences %<>%
   mutate(ConfAbbrev = ifelse(ConfAbbrev == 'pac_ten', 'pac_twelve', ConfAbbrev))
 ```
 
 In addition to the files above there are play-by-play records since 2015.
-These files contain individual records for every event takig place during the season.
+These files contain individual records for every event that occured in every game.
 There is potential for the data to not be 100% accurate as described on the Kaggle site.
+For this reason and because it is only available for the last 5 seasons I have decided to exclude the play-by-play from this analysis.
 
 ```{r pbp, cache=TRUE}
 # folder <- 'C:/Users/Jake/Documents/Projects/UVA-CBB/data'
@@ -81,14 +83,13 @@ There is potential for the data to not be 100% accurate as described on the Kagg
 
 # Exploratory Data Analysis (EDA)
 
-Some of the data files supplied contain useful metadata to go along with some of the other more detailed files.
-These files include Cities, MGameCities, Conferences, MNCAATourneySeedRoundSlots, MSeasons, MTeamConferences, MNCAATourneySlots, MConferenceTourneyGames, and MTeamSpellings.
-The data from these files will be incorporated into the analysis later on but there is not much to discover from these files alone.
+The following sections show the results of the analysis done to identify the patterns and trends in winners.
+This is not an exhaustive analysis of all possible patterns and trends.
+Some of the findings support well known patterns (i.e. higher seeds beat lower seeds more frequently) while others attempt to uncover lesser known patterns.
 
 ## The Growth of a League
 
-The __MTeams__ dataframe contains the TeamID, team name, and first/last season each team was active in.
-There have been `r nrow(dfs$MTeams)` Division 1 (D1) men's teams that have played at least one seson since `r min(dfs$MTeams$FirstD1Season)` (first season recorded in data).
+There have been `r nrow(dfs$MTeams)` Division 1 (D1) men's teams that have played at least one seson since `r min(dfs$MTeams$FirstD1Season)`.
 In `r min(dfs$MTeams$FirstD1Season)` there were `r nrow(filter(dfs$MTeams, FirstD1Season == min(dfs$MTeams$FirstD1Season)))` active D1 men's teams.
 There were `r nrow(filter(dfs$MTeams, LastD1Season == 2020))` active teams in the most recent college basketball season (2019-2020).
 The chart below shows the growth over time in the number of men's D1 basketball teams.
@@ -116,6 +117,35 @@ left_join(dfs$MTeams %>%
 
 ## Regular Season
 
+The regular season offers a larger sample of games to investigate the patterns in winners.
+
+```{r}
+reg_szn_winners <-
+    dfs$MRegularSeasonDetailedResults %>% 
+    select(Season, DayNum, NumOT, starts_with('W', ignore.case = F), -WLoc) %>% 
+    mutate(Result = 'Win')
+
+reg_szn_losers <-
+    dfs$MRegularSeasonDetailedResults %>% 
+    select(Season, DayNum, NumOT, starts_with('L', ignore.case = F)) %>% 
+    mutate(Result = 'Lose')
+
+names(reg_szn_winners) <- str_replace(names(reg_szn_winners), 'W', '')
+names(reg_szn_losers) <- str_replace(names(reg_szn_losers), 'L', '')
+
+reg_szn <- bind_rows(reg_szn_winners, reg_szn_losers)
+```
+
+```{r}
+reg_szn[,6:19] %>% 
+    gather(Metric, Value, -Result) %>% 
+    ggplot(aes(color = Result, x=Value)) +
+    geom_density(adjust = 3) +
+    facet_wrap(~Metric, scales = 'free') +
+    theme(axis.text.y = element_blank(),
+          axis.ticks.y = element_blank(),
+          axis.title.y = element_blank())
+```
 
 
 ## March Madness
@@ -439,13 +469,13 @@ MTeamCoaches
 
 MMasseyOrdinals
 
-# Asking the Data Questions
+<!-- # Asking the Data Questions -->
 
-* Coaching changes
-* Similarity between reg season and playoffs
-* Distance from home in tourney
-* Best region to be in to win it all?
-* Do regular season matchups determine MM outcome?
+<!-- * Coaching changes -->
+<!-- * Similarity between reg season and playoffs -->
+<!-- * Distance from home in tourney -->
+<!-- * Best region to be in to win it all? -->
+<!-- * Do regular season matchups determine MM outcome? -->
 
 
 # Conclusions
