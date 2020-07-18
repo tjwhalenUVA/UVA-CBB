@@ -7,6 +7,8 @@ data/*
 
 eda/NCAA-EDA_cache/*
 eda/NCAA-EDA_files/*
+eda/The_Madness-Jake_Whalen_cache/*
+eda/The_Madness-Jake_Whalen_files/*
 eda/test_file.R
 
 models/grid_models/*
