@@ -37,6 +37,16 @@ for (f in files){
     df.name <- str_replace(f, '.csv', '')
     dfs[[df.name]] <- vroom(file.path(folder, f))
 }
+
+#Ply-by-Play data
+pbp_folder <- 'C:/Users/Jake/Documents/Projects/UVA-CBB/data'
+pbp_files <- list.files(pbp_folder, pattern = 'MEvents')
+pbp_dfs <- list()
+
+for (f in pbp_files){
+    df.name <- str_replace(f, '.csv', '')
+    pbp_dfs[[df.name]] <- vroom(file.path(pbp_folder, f))
+}
 ```
 
 ```{r fix-P12, include=F}
@@ -47,7 +57,7 @@ dfs$MTeamConferences %<>%
 
 # Background
 
-The term 'March Madness' wasn't associated with the Men's Division I college basketball tournament until 1982 when Brent Musberger used it during his coverage of the tournament [March Madness History](https://www.ncaa.com/news/basketball-men/article/2020-05-15/march-madness-history-ultimate-guide#:~:text=The%20term%20'March%20Madness'%20was,coverage%20of%20the%201982%20tournament.).
+The term 'March Madness' wasn't associated with the Mens Division I college basketball tournament until 1982 when Brent Musberger used it during his coverage of the tournament [March Madness History](https://www.ncaa.com/news/basketball-men/article/2020-05-15/march-madness-history-ultimate-guide#:~:text=The%20term%20'March%20Madness'%20was,coverage%20of%20the%201982%20tournament.).
 The term "Madness" refers to the seemingly unpredictable nature of the tournament.
 An example of this madness is in 2018 when the 16 seed University of Maryland Baltimore College (UMBC) upset then number 1 seed University of Virginia (UVA).
 Prior to that game a 1 seed had never lost to a 16 seed which made this upset so unthinkable (and unbearable for us UVA fans).
@@ -61,17 +71,118 @@ The following analysis aims to look at some possible explanations for what reall
 
 # Close Games
 
-Compare scores (possibly in game variance).
+One of the main assumptions behind where March Madness gets it's name is from the amount close games in the tournament.
+A good way to measure how many close games there are overall is to look at the number of games requiring an overtime (OT) period to decide a winner.
+The plot below shows the percent of games that went to OT per season in both the regular season and March Madness Tournament.
+The regular season shows less variance in the percent of OT games due to the larger number of games in the annual samples.
+March Madness shows less stability year-to-year in the amount of OT games.
+In 2014 over 10% of the March Madness games required OT while in 2012, 2013 and 2017 less than 2% of the games required OT.
+The plot shows that it is not always the case that games require OT more often in March Madness than in the Regular Season.
+
+```{r percent-ot-games}
+ot_games <-
+  bind_rows(
+    dfs$MNCAATourneyCompactResults %>% 
+      mutate(OT = if_else(NumOT > 0, 'Yes', 'No'),
+             group = 'March Madness') %>% 
+      group_by(Season, OT, group) %>% 
+      count(),
+    dfs$MRegularSeasonCompactResults %>% 
+      mutate(OT = if_else(NumOT > 0, 'Yes', 'No'),
+             group = 'Regular Season') %>% 
+      group_by(Season, OT, group) %>% 
+      count()
+  ) %>% 
+  pivot_wider(id_cols = c(Season, group), names_from = OT, values_from = n) %>% 
+  mutate(Games = Yes + No,
+         PercentOTGames = Yes / Games) 
+
+ot_games %>% 
+    filter(Season >= 2000) %>% 
+  ggplot(aes(x=Season, y=PercentOTGames, fill=group)) +
+  geom_bar(stat = 'identity', position = 'dodge', color='black') +
+  scale_y_continuous(labels = scales::percent)
+```
+
+Another way to measure the closeness of a game is to look at the difference in the scores during the game.
+The plots below show the Average Score Differential, Final Score Differential and the Maximum Score Differential during games.
+The data used to calculate these measurements was only available for the 2019 season.
+An indication that games are closer in March Madness would be if the histograms below for March Madness were bunched up near the y-axis.
+That would indicate the difference in scores (average, final, and max) were all near zero (tied game).
+The plots below do not indicate that March Madness games are closer than Regular season games.
+
+```{r In-Game-Scores}
+#This DF is used to tag the games as either regular season or MM
+season_days <-
+    bind_rows(
+        dfs$MRegularSeasonCompactResults %>% 
+            select(Season, DayNum, WTeamID, LTeamID) %>% 
+            mutate(group = 'Regular Season'),
+        dfs$MNCAATourneyCompactResults %>% 
+            select(Season, DayNum, WTeamID, LTeamID) %>% 
+            mutate(group = 'March Madness')
+    ) %>% 
+    filter(Season >= 2015)
+
+#This vector is used to filter out games involving two non-tournament teams
+tourn_teams_2019 <-
+    dfs$MNCAATourneyCompactResults %>% 
+    filter(Season == 2019) %>% 
+    pivot_longer(cols = c(WTeamID, LTeamID),
+                 values_to = 'TeamID', names_to = 'Outcome') %>% 
+    distinct(TeamID) %>% .$TeamID
+
+
+pbp_dfs$MEvents2019 %>% 
+    filter(!(WCurrentScore == 0 & LCurrentScore == 0) &
+               (WTeamID %in% tourn_teams_2019 | LTeamID %in% tourn_teams_2019)) %>% 
+    mutate(WminLScoreDiff = WCurrentScore - LCurrentScore,
+           AbsScoreDiff = abs(WCurrentScore - LCurrentScore)) %>% 
+    group_by(Season, DayNum, WTeamID, LTeamID) %>% 
+    summarise('Maximum Score Differential' = max(AbsScoreDiff, na.rm = T),
+              'Average Score Differential' = mean(AbsScoreDiff, na.rm = T)) %>% 
+    left_join(., season_days, 
+              by = c('Season', 'DayNum', 'WTeamID', 'LTeamID')) %>%
+    filter(!is.na(group)) %>% 
+    pivot_longer(cols = c('Maximum Score Differential',
+                          'Average Score Differential'), 
+                 names_to = 'Statistic',
+                 values_to = 'Value') %>% 
+    bind_rows(dfs$MNCAATourneyCompactResults %>%
+                  filter(Season == 2019 &
+                                 (WTeamID %in% tourn_teams_2019 | 
+                                      LTeamID %in% tourn_teams_2019)) %>%
+                      mutate(Statistic = 'Final Score Differential',
+                         Value = WScore - LScore,
+                         group = 'March Madness'),
+              dfs$MRegularSeasonCompactResults %>% 
+                      filter(Season == 2019 &
+                                 (WTeamID %in% tourn_teams_2019 | 
+                                      LTeamID %in% tourn_teams_2019)) %>%
+                      mutate(Statistic = 'Final Score Differential',
+                         Value = WScore - LScore,
+                         group = 'Regular Season')) %>% 
+    ggplot(aes(x=Value, fill=group)) +
+    geom_histogram() +
+    facet_grid(group~Statistic, scales = 'free')
+```
+
+After looking at both OT games and game scores it does not seem to be that March Madness has closer games than the regular season.
+It may be helpful to conduct this analysis again when there are more years with available data.
+One reason it may seem that March Madness has so many close games is the frequency with which the games are played.
+During the first weekend of the tournament 48 games are played over a four day period.
+This leads to non-stop basketball and up to four games at a time.
+Therefore at any point in time during these games it is likely that one of the games is relatively close and not a blow out.
 
 # Comebacks
 
 # David vs. Goliath
 
-The graphic below shows the winning percentage amongst seed matchups. 
+The graphic below shows the winning percentage among seed match-ups. 
 The seeds denoted on the y-axis are the winners while the seeds across the x-axis are the losers. 
-The diagonal (equal seeded matchups) were removed from this chart since there was no comparison (1 seed has a 100% win rate against 1 seeds with a 100% losing rate at the same time). 
+The diagonal (equal seeded match-ups) were removed from this chart since there was no comparison (1 seed has a 100% win rate against 1 seeds with a 100% losing rate at the same time). 
 A blank indicates the two seeds have never matched up before in the tournament. 
-When viewing this chart it is important to remind yourself that not all of these matchups are as common as others. 
+When viewing this chart it is important to remind yourself that not all of these match-ups are as common as others. 
 For instance a 1 vs 16 and a 8 vs 9 are guaranteed to be played four times every single tournament because those are first round games.
 
 A few quick takeaways from the graphic below: 
@@ -84,7 +195,7 @@ A few quick takeaways from the graphic below:
 * Being a 2 seed doesn't look as good as it sounds.
     + 0 wins over 5 and 9 seeds.
     + An abysmal 29% winning percentage over 8 seeds.
-* In recent memory the 5 vs 12 is a common upset pick in many brackets however the 12 seed only holds a 36% winning percentage in this matchup.
+* In recent memory the 5 vs 12 is a common upset pick in many brackets however the 12 seed only holds a 36% winning percentage in this match-up.
 
 ```{r seed_v_seed_map, fig.width=6, fig.height=6}
 df.seed.results <-
@@ -130,7 +241,6 @@ df.wvl.seed %>%
     scale_x_continuous(position = "top", breaks = 1:16, expand = c(0,0)) +
     scale_fill_gradient2(low = 'red', mid='grey',
                          high='green', midpoint = 0.5) +
-    my_theme +
     theme(axis.ticks = element_blank(),
           legend.position = 'bottom',
           panel.grid.major = element_blank()) +
@@ -246,7 +356,12 @@ per_chg_ft <-
 knitr::knit_print(per_chg_ft)
 ```
 
-# UVa vs UMBC Upset
+# UMBC vs UVa Upset
+
+On March 16, 2018 UMBC pulled off the greatest March Madness upset of all time.
+UMBC defeated UVa 74 to 54 and became the first ever sixteen seed to beat a one seed.
+An upset of this magnitude is exactly what inspires the term "Madness".
+The rest of this section examines what went right (for UMBC) and wrong (for UVa) in this game.
 
 ```{r}
 umbc_id <- 1420
@@ -276,10 +391,28 @@ upset_plt <- function(df, x, y, ref_lines, colors) {
         theme_classic() +
         scale_color_manual(values = colors)
 }
+
+make_title <- function(txt) {
+  ggdraw() +
+  draw_label(txt, fontface = 'bold', x = 0, hjust = 0) +
+  theme(plot.margin = margin(0, 0, 0, 10))
+}
 ```
 
-```{r}
-plot_grid(
+The plots in this section are all setup with a similar pattern.
+UMBC on the left and UVa on the right.
+The black (UMBC) and blue (UVa) points represent the teams regular season game results.
+The yellow (UMBC) and orange (UVa) points represent the upset game.
+
+The first plot compares the teams field goals.
+The field goals metric includes all shot attempts/makes from both 2-pt and 3-pt range.
+The reference lines (dashed lines) indicate shooting percentages from 100% to 25% in 25% increments (top to bottom line).
+The regular season points for UVa are tightly clustered indicating a more consistent offensive performance.
+The upset games show UMBC having one of it's best shooting performances of the year and UVa having one of its poorer performances.
+
+```{r FGA-FGM}
+plot_row <-
+  plot_grid(
   upset_plt(df = df_umbc_upset, x='FGA', y='FGM', 
           ref_lines = seq(1, 0.25, length.out = 4),
           colors = c('gold', 'black')) +
@@ -292,10 +425,24 @@ plot_grid(
     scale_y_continuous(limits = c(0, 40))
 )
 
+plot_grid(
+  make_title('Field Goals'), plot_row, 
+  ncol = 1, rel_heights = c(0.1, 1)
+)
 ```
 
-```{r}
-plot_grid(
+The 3-pt shooting numbers show a similar pattern of consistency in UVa's performance.
+UVa typically took between 10 to 30 three pointers in a game and made 25% to 50% of them.
+UMBC on the other hand was more inconsistent in their 3-pt shooting.
+Their attempts ranged from 10 to 40+ and they made anywhere from 10% to 60%+ of their shots.
+Focusing on the upset game it is clear that 3-pt shooting was a problem for UVa and strength for UMBC that day.
+UVa shot it's worst 3-pt % of the season (18%) and scored only 12 points from beyond the arc.
+UMBC matched its 3rd highest 3-pt % of the season (50%) and totaled 36 points from beyond the arc.
+The number of attempts differed by 2 with UMBC attempting 24 and UVa 22.
+
+```{r FGA3-FGM3}
+plot_row <-
+  plot_grid(
   upset_plt(df = df_umbc_upset, x='FGA3', y='FGM3', 
           ref_lines = seq(1, 0.25, length.out = 4),
           colors = c('gold', 'black')) +
@@ -307,10 +454,24 @@ plot_grid(
     scale_x_continuous(limits = c(0, 45)) +
     scale_y_continuous(limits = c(0, 20))
 )
+
+plot_grid(
+  make_title('3-pt Field Goals'), plot_row, 
+  ncol = 1, rel_heights = c(0.1, 1)
+)
 ```
 
-```{r}
-plot_grid(
+The free throw attempt (FTA)/make(FTM) rates aided in the making of an upset.
+It is not to say that the game was called unfairly by the refs.
+A higher number of FTA stems from either undisciplined defense, dumb/unnecessary fouls by defenders, or aggressive offense, drawing contact on drives to the hoop and not settling for jump shots.
+In the upset game UVa failed to get to the line only generating 8 FTA.
+When they got them they also failed to convert, shooting 50% on their FTA.
+UMBC did slightly better getting to the line with 14 FTA in the game.
+They converted on 10 of those attempts (71%).
+
+```{r FTA-FTM}
+plot_row <-
+  plot_grid(
   upset_plt(df = df_umbc_upset, x='FTA', y='FTM', 
           ref_lines = seq(1, 0.25, length.out = 4),
           colors = c('gold', 'black')) +
@@ -322,10 +483,24 @@ plot_grid(
     scale_x_continuous(limits = c(0, 30)) +
     scale_y_continuous(limits = c(0, 20))
 )
+
+plot_grid(
+  make_title('Free Throws'), plot_row, 
+  ncol = 1, rel_heights = c(0.1, 1)
+)
 ```
 
-```{r}
-plot_grid(
+The rebounding plots below may look as though UVa was out hustled based on the disparity in defensive rebound (DR) numbers, but the number of DR possible must be taken into account.
+UVa collected 17 out of a possible 22 rebounds (77%).
+UMBC collected 29 out of a possible 33 rebounds (88%).
+While this disparity in DR percentage may not seem like much it is important to note the make up of the teams.
+UVa's lineup was larger at every position then UMBC.
+Therefore UVa should have dominated the rebounding match up.
+As the plots show, UMBC was able to out-hustle UVa and neutralize that size advantage.
+
+```{r OR-DR}
+plot_row <-
+  plot_grid(
   upset_plt(df = df_umbc_upset, x='OR', y='DR', 
           ref_lines = 0,
           colors = c('gold', 'black')) +
@@ -337,10 +512,29 @@ plot_grid(
     scale_x_continuous(limits = c(1, 25)) +
     scale_y_continuous(limits = c(15, 40))
 )
+
+plot_grid(
+  make_title('Rebounding'), plot_row, 
+  ncol = 1, rel_heights = c(0.1, 1)
+)
 ```
 
-```{r}
-plot_grid(
+The Turnover to Assist ratio is often a cited metric for describing a teams composure and ball control.
+It shows whether a team was able to maintain control and make smart plays or if they were playing wild and making costly mistakes.
+Points towards the top left corner of the graph indicate teams playing with more composure (more assists and fewer turnovers).
+The dashed reference lines indicate, from bottom to top) a 1-1, 2-1 and 3-1 Ast to TO ration.
+The higher the first value in the ratio the better.
+The charts show both UVa and UMBC with a scattering of Ast-TO ratios during the regular season.
+UVa frequently exceeded a 2-1 Ast-TO ratio throughout the season.
+They had come to be know as a team that did not give their opponents many extra possessions.
+UMBC hovered between 2-1 and 1-1 Ast-TO for most of the regular season and even ended up in that range during the upset game.
+In the upset game UVa wound up below the 1-1 Ast-TO line.
+It was not due to an uncharacteristically high number of TOs but rather a extreme lack of Ast.
+UVa totaled it's fewest Ast in a game during the upset.
+
+```{r TO-Ast}
+plot_row <-
+  plot_grid(
   upset_plt(df = df_umbc_upset, x='TO', y='Ast', 
           ref_lines = 1:3,
           colors = c('gold', 'black')) +
@@ -352,10 +546,23 @@ plot_grid(
     scale_x_continuous(limits = c(2, 20)) +
     scale_y_continuous(limits = c(5, 25))
 )
+
+plot_grid(
+  make_title('Turnover/Assist'), plot_row, 
+  ncol = 1, rel_heights = c(0.1, 1)
+)
 ```
 
-```{r}
-plot_grid(
+The next plot shows two additional common stats referenced in a game, blocks (Blk) and steals (Stl).
+The low number of blocks by UVa reinforces the previous point that UMBC somehow neutralized UVas size advantage.
+Somehow, despite the size advantage, UVa managed to record only one block after averaging 3.7 a game during the regular season.
+UVa did manage to pressure UMBC enough to generate eight steals, but likewise failed to convert on the other end connecting on their shots.
+UMBC did not do well generating steals and/or blocks.
+They matched their lowest number of blocks (0) for the season and set their lowest number of steals (2).
+
+```{r Blk-Stl}
+plot_row <-
+  plot_grid(
   upset_plt(df = df_umbc_upset, x='Blk', y='Stl', 
           ref_lines = -1,
           colors = c('gold', 'black')) +
@@ -367,9 +574,20 @@ plot_grid(
     scale_x_continuous(limits = c(0, 8)) +
     scale_y_continuous(limits = c(2, 16))
 )
+
+plot_grid(
+  make_title('Blocks & Steals'), plot_row, 
+  ncol = 1, rel_heights = c(0.1, 1)
+)
 ```
 
-```{r}
+The last plot to investigate the upset shows the number of personal fouls committed by each team.
+This plot gives similar information as the FTA/FTM plot however the FTA/FTM values are also dependent on what type of foul was committed (and-one/continuation) and where the shooter was (inside or outside 3-pt arc).
+The personal foul plot simply shows how well a team did at avoiding fouls and giving the other team FT opportunities.
+UMBC managed to play one of their cleanest games of the season committing 13 fouls.
+UVa didn't have an outlier of a game by committing an absurd number of fouls but they did surpass their average (14.1) personal fouls a game.
+
+```{r personal-fouls}
 umbc <-
   df_umbc_upset %>% 
     ggplot(aes(x=PF, fill=group)) +
@@ -386,6 +604,18 @@ uva <-
     labs(x='Number of Fouls', y='Games') +
     scale_fill_manual(values = c('orange', 'blue'))
 
-plot_grid(umbc, uva)
+plot_grid(
+  make_title('Personal Fouls'), plot_grid(umbc, uva), 
+  ncol = 1, rel_heights = c(0.1, 1)
+)
 ```
 
+In order for this historical upset to occur a few things had to happen and the plots above show that.
+First, UVa had to play at or below their average.
+They did so by failing to connect on their 3-pt attempts, inability to get to the line and make free throws, lack of team ball (assists), and failure to utilize their size advantage.
+UMBC on the other hand had to play at or above their average performance level.
+They did not make unnecessary mistakes and distributed the ball well (TO-Ast), they capitalized on their free throws, they limited their fouls, and they shot lights out from the field and beyond the 3-pt arc.
+Due to both of these teams playing at the levels they did a one seed finally lost to a sixteen.
+This unthinkable combination of events is what fuels the madness of March.
+
+# Predicting Winners
