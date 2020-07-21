@@ -7,7 +7,7 @@ output: pdf_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = F,
                       message = F,
-                      fig.width = 8, fig.height = 3)
+                      fig.width = 8, fig.height = 4)
 ```
 
 ```{r packages, include=FALSE}
@@ -71,9 +71,14 @@ The following analysis aims to look at some possible explanations for what reall
 
 # Close Games
 
-One of the main assumptions behind where March Madness gets it's name is from the amount close games in the tournament.
+One of the main assumptions in where March Madness gets it's name is from the amount close games in the tournament.
 A good way to measure how many close games there are overall is to look at the number of games requiring an overtime (OT) period to decide a winner.
 The plot below shows the percent of games that went to OT per season in both the regular season and March Madness Tournament.
+I chose not to focus on the regular season OT data collected prior to the 2000 season.
+As the plot indicates there is a steep uptick in the percent of games requiring OT.
+I attribute this to data collection/preperation error rather than an actual change in how often games go to OT.
+The same can be said about the most recent 2019 seasons data.
+
 The regular season shows less variance in the percent of OT games due to the larger number of games in the annual samples.
 March Madness shows less stability year-to-year in the amount of OT games.
 In 2014 over 10% of the March Madness games required OT while in 2012, 2013 and 2017 less than 2% of the games required OT.
@@ -98,10 +103,18 @@ ot_games <-
          PercentOTGames = Yes / Games) 
 
 ot_games %>% 
-    filter(Season >= 2000) %>% 
-  ggplot(aes(x=Season, y=PercentOTGames, fill=group)) +
-  geom_bar(stat = 'identity', position = 'dodge', color='black') +
-  scale_y_continuous(labels = scales::percent)
+    # filter(Season >= 2000) %>% 
+    ggplot(aes(x=Season, y=PercentOTGames, color=group, fill=group)) +
+    geom_line(stat = 'identity') +
+    geom_point(stat = 'identity', shape = 21, size = 2, color='black') +
+    scale_y_continuous(labels = scales::percent, breaks = seq(0.00, .14, .015)) +
+    scale_x_continuous(breaks = seq(1985, 2019, 3)) +
+    theme_classic() +
+    labs(y='% of Games requiring OT') +
+    theme(legend.title = element_blank(),
+          legend.position = 'bottom',
+          panel.grid.major.x = element_line(color = 'grey75'),
+          panel.border = element_rect(color = 'black', fill = NA))
 ```
 
 Another way to measure the closeness of a game is to look at the difference in the scores during the game.
@@ -126,45 +139,53 @@ season_days <-
 
 #This vector is used to filter out games involving two non-tournament teams
 tourn_teams_2019 <-
-    dfs$MNCAATourneyCompactResults %>% 
-    filter(Season == 2019) %>% 
-    pivot_longer(cols = c(WTeamID, LTeamID),
-                 values_to = 'TeamID', names_to = 'Outcome') %>% 
-    distinct(TeamID) %>% .$TeamID
-
+  dfs$MNCAATourneyCompactResults %>% 
+  filter(Season == 2019) %>% 
+  pivot_longer(cols = c(WTeamID, LTeamID),
+               values_to = 'TeamID', names_to = 'Outcome') %>% 
+  distinct(TeamID) %>% .$TeamID
 
 pbp_dfs$MEvents2019 %>% 
-    filter(!(WCurrentScore == 0 & LCurrentScore == 0) &
-               (WTeamID %in% tourn_teams_2019 | LTeamID %in% tourn_teams_2019)) %>% 
-    mutate(WminLScoreDiff = WCurrentScore - LCurrentScore,
-           AbsScoreDiff = abs(WCurrentScore - LCurrentScore)) %>% 
-    group_by(Season, DayNum, WTeamID, LTeamID) %>% 
-    summarise('Maximum Score Differential' = max(AbsScoreDiff, na.rm = T),
-              'Average Score Differential' = mean(AbsScoreDiff, na.rm = T)) %>% 
-    left_join(., season_days, 
-              by = c('Season', 'DayNum', 'WTeamID', 'LTeamID')) %>%
-    filter(!is.na(group)) %>% 
-    pivot_longer(cols = c('Maximum Score Differential',
-                          'Average Score Differential'), 
-                 names_to = 'Statistic',
-                 values_to = 'Value') %>% 
-    bind_rows(dfs$MNCAATourneyCompactResults %>%
-                  filter(Season == 2019 &
-                                 (WTeamID %in% tourn_teams_2019 | 
-                                      LTeamID %in% tourn_teams_2019)) %>%
-                      mutate(Statistic = 'Final Score Differential',
-                         Value = WScore - LScore,
-                         group = 'March Madness'),
-              dfs$MRegularSeasonCompactResults %>% 
-                      filter(Season == 2019 &
-                                 (WTeamID %in% tourn_teams_2019 | 
-                                      LTeamID %in% tourn_teams_2019)) %>%
-                      mutate(Statistic = 'Final Score Differential',
-                         Value = WScore - LScore,
-                         group = 'Regular Season')) %>% 
-    ggplot(aes(x=Value, fill=group)) +
-    geom_histogram() +
-    facet_grid(group~Statistic, scales = 'free')
+  filter(!(WCurrentScore == 0 & LCurrentScore == 0) &
+           (WTeamID %in% tourn_teams_2019 | LTeamID %in% tourn_teams_2019)) %>% 
+  mutate(WminLScoreDiff = WCurrentScore - LCurrentScore,
+         AbsScoreDiff = abs(WCurrentScore - LCurrentScore)) %>% 
+  group_by(Season, DayNum, WTeamID, LTeamID) %>% 
+  summarise('Maximum' = max(AbsScoreDiff, na.rm = T),
+            'Average' = mean(AbsScoreDiff, na.rm = T)) %>% 
+  left_join(., season_days, 
+            by = c('Season', 'DayNum', 'WTeamID', 'LTeamID')) %>%
+  filter(!is.na(group)) %>% 
+  pivot_longer(cols = c('Maximum',
+                        'Average'), 
+               names_to = 'Statistic',
+               values_to = 'Value') %>% 
+  bind_rows(dfs$MNCAATourneyCompactResults %>%
+              filter(Season == 2019 &
+                       (WTeamID %in% tourn_teams_2019 | 
+                          LTeamID %in% tourn_teams_2019)) %>%
+              mutate(Statistic = 'Final',
+                     Value = WScore - LScore,
+                     group = 'March Madness'),
+            dfs$MRegularSeasonCompactResults %>% 
+              filter(Season == 2019 &
+                       (WTeamID %in% tourn_teams_2019 | 
+                          LTeamID %in% tourn_teams_2019)) %>%
+              mutate(Statistic = 'Final',
+                     Value = WScore - LScore,
+                     group = 'Regular Season')) %>% 
+  ggplot(aes(x=Value, fill=group)) +
+  geom_density(alpha=0.5) +
+  facet_grid(~Statistic, scales = 'free') +
+  theme_classic() +
+  labs(y=NULL, x='Score Differential') +
+  theme(legend.title = element_blank(),
+        legend.position = 'bottom',
+        panel.grid.major.x = element_line(color = 'grey75'),
+        panel.border = element_rect(color = 'black', fill = NA),
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  scale_x_continuous(breaks = seq())
 ```
 
 After looking at both OT games and game scores it does not seem to be that March Madness has closer games than the regular season.
@@ -197,7 +218,7 @@ A few quick takeaways from the graphic below:
     + An abysmal 29% winning percentage over 8 seeds.
 * In recent memory the 5 vs 12 is a common upset pick in many brackets however the 12 seed only holds a 36% winning percentage in this match-up.
 
-```{r seed_v_seed_map, fig.width=6, fig.height=6}
+```{r seed_v_seed_map, fig.height=6}
 df.seed.results <-
     dfs$MNCAATourneyCompactResults %>% 
     select(Season, DayNum, WTeamID, LTeamID) %>% 
@@ -239,8 +260,8 @@ df.wvl.seed %>%
     geom_vline(xintercept = 0.5:16.5) +
     scale_y_continuous(trans = "reverse", breaks = 1:16, expand = c(0,0)) +
     scale_x_continuous(position = "top", breaks = 1:16, expand = c(0,0)) +
-    scale_fill_gradient2(low = 'red', mid='grey',
-                         high='green', midpoint = 0.5) +
+    scale_fill_gradient2(low = 'red', mid='grey', high='green', midpoint = 0.5) +
+    theme_classic() +
     theme(axis.ticks = element_blank(),
           legend.position = 'bottom',
           panel.grid.major = element_blank()) +
@@ -309,38 +330,86 @@ bind_rows(reg_szn %>% mutate(group = 'Regular Season'),
     labs(title='Auxiliary Plays')
 ```
 
-```{r percent-change}
+```{r percent-change-rsVmm}
 typology <- data.frame(
-    col_keys = c('Stat Group', 'Metric', 
-                 'March Madness Lose', 'Regular Season Lose', 'Change Lose',
-                 'March Madness Win', 'Regular Season Win',  'Change Win'),
+  col_keys = c('Stat Group', 'Metric', 
+               'March Madness Lose', 'Regular Season Lose', 'Change Lose',
+               'March Madness Win', 'Regular Season Win',  'Change Win'),
+  what = c('Stat Group', "Metric", 
+           "Lose", "Lose", "Lose", 
+           "Win", "Win", "Win"),
+  measure = c('Stat Group', "Metric", 
+              "March Madness", "Regular Season", "Change", 
+              "March Madness", "Regular Season", "Change"),
+  stringsAsFactors = FALSE )
+
+per_chg_rsVmm <-
+  bind_rows(reg_szn %>% mutate(group = 'Regular Season'),
+            mar_mdn %>% mutate(group = 'March Madness')) %>% 
+  .[,6:20] %>% 
+  gather(Metric, Value, -Result, -group) %>% 
+  group_by(Result, group, Metric) %>% 
+  summarise(Mean = mean(Value)) %>%
+  pivot_wider(names_from = group, values_from = Mean) %>%
+  mutate(Change = scales::percent((`March Madness` - `Regular Season`) / `Regular Season`,
+                                  accuracy = 0.1),
+         Metric = factor(Metric,
+                         levels = c('FGA', 'FGM', 'FGA3', 'FGM3', 'FTA', 'FTM', 
+                                    'Ast', 'OR', 'DR', 'TO', 'Stl', 'Blk', 'PF')),
+         'Stat Group' = if_else(Metric %in% c('FGA', 'FGM', 'FGA3', 'FGM3', 
+                                              'FTA', 'FTM', 'Ast'),
+                                'Scoring', 'Auxiliary')) %>%
+  pivot_wider(id_cols = c(`Stat Group`, Metric), names_from = Result, 
+              names_sep = ' ',
+              values_from = c(`Regular Season`, `March Madness`, Change)) %>% 
+  select(`Stat Group`, Metric, contains('Lose'), contains('Win')) %>% 
+  arrange(Metric) %>% 
+  flextable(.) %>%
+  set_header_df(mapping = typology, key = "col_keys") %>% 
+  merge_h(part = "header") %>% 
+  merge_v(part = "header") %>%
+  merge_v(j='Stat Group') %>% 
+  theme_booktabs() %>% 
+  colformat_num(c(3,4,6,7)) %>% 
+  align(j=2, align = 'center') %>% 
+  align(j=c(5,8), align = 'right') %>% 
+  align(align = 'center', part = 'header')
+
+knitr::knit_print(per_chg_rsVmm)
+```
+
+```{r percent-change-winVlose}
+typology <- data.frame(
+    col_keys = c('Stat Group', 'Metric',
+                 'Win Regular Season', 'Lose Regular Season', 'Change Regular Season',
+                 'Win March Madness', 'Lose March Madness',  'Change March Madness'),
     what = c('Stat Group', "Metric", 
-             "Lose", "Lose", "Lose", 
-             "Win", "Win", "Win"),
+             "Regular Season", "Regular Season", "Regular Season", 
+             "March Madness", "March Madness", "March Madness"),
     measure = c('Stat Group', "Metric", 
-                "March Madness", "Regular Season", "Change", 
-                "March Madness", "Regular Season", "Change"),
+                "Win", "Lose", "Change", 
+                "Win", "Lose", "Change"),
     stringsAsFactors = FALSE )
 
-per_chg_ft <-
-    bind_rows(reg_szn %>% mutate(group = 'Regular Season'),
-          mar_mdn %>% mutate(group = 'March Madness')) %>% 
+per_chg_winVlose <-
+  bind_rows(reg_szn %>% mutate(group = 'Regular Season'),
+              mar_mdn %>% mutate(group = 'March Madness')) %>% 
     .[,6:20] %>% 
     gather(Metric, Value, -Result, -group) %>% 
     group_by(Result, group, Metric) %>% 
     summarise(Mean = mean(Value)) %>%
-    pivot_wider(names_from = group, values_from = Mean) %>%
-    mutate(Change = scales::percent((`March Madness` - `Regular Season`) / `Regular Season`,
-                                    accuracy = 0.1),
+    pivot_wider(names_from = Result, values_from = Mean) %>%
+    mutate(Change = scales::percent((Win - Lose) / Lose, accuracy = 0.1),
            Metric = factor(Metric,
                            levels = c('FGA', 'FGM', 'FGA3', 'FGM3', 'FTA', 'FTM', 
                                       'Ast', 'OR', 'DR', 'TO', 'Stl', 'Blk', 'PF')),
-           'Stat Group' = if_else(Metric %in% c('FGA', 'FGM', 'FGA3', 'FGM3', 'FTA', 'FTM', 'Ast'),
+           'Stat Group' = if_else(Metric %in% c('FGA', 'FGM', 'FGA3', 'FGM3', 
+                                                'FTA', 'FTM', 'Ast'),
                                   'Scoring', 'Auxiliary')) %>%
-    pivot_wider(id_cols = c(`Stat Group`, Metric), names_from = Result, 
+    pivot_wider(id_cols = c(`Stat Group`, Metric), names_from = group, 
                 names_sep = ' ',
-                values_from = c(`Regular Season`, `March Madness`, Change)) %>% 
-    select(`Stat Group`, Metric, contains('Lose'), contains('Win')) %>% 
+                values_from = c(Win, Lose, Change)) %>% 
+    select(`Stat Group`, Metric, contains('Regular'), contains('March')) %>% 
     arrange(Metric) %>% 
     flextable(.) %>%
     set_header_df(mapping = typology, key = "col_keys") %>% 
@@ -353,7 +422,7 @@ per_chg_ft <-
     align(j=c(5,8), align = 'right') %>% 
     align(align = 'center', part = 'header')
 
-knitr::knit_print(per_chg_ft)
+knitr::knit_print(per_chg_winVlose)
 ```
 
 # UMBC vs UVa Upset
@@ -368,34 +437,37 @@ umbc_id <- 1420
 uva_id <- 1438
 
 df_umbc_upset <-
-    bind_rows(combined(dfs$MRegularSeasonDetailedResults) %>% 
+  bind_rows(combined(dfs$MRegularSeasonDetailedResults) %>% 
               filter(Season == 2018 & TeamID == umbc_id) %>% 
               mutate(group = 'Regular Season'),
-          combined(dfs$MNCAATourneyDetailedResults) %>% 
+            combined(dfs$MNCAATourneyDetailedResults) %>% 
               filter(Season == 2018 & TeamID == umbc_id & Result == 'Win') %>% 
               mutate(group = 'March Madness'))
 
 df_uva_upset <-
-    bind_rows(combined(dfs$MRegularSeasonDetailedResults) %>% 
+  bind_rows(combined(dfs$MRegularSeasonDetailedResults) %>% 
               filter(Season == 2018 & TeamID == uva_id) %>% 
               mutate(group = 'Regular Season'),
-          combined(dfs$MNCAATourneyDetailedResults) %>% 
+            combined(dfs$MNCAATourneyDetailedResults) %>% 
               filter(Season == 2018 & TeamID == uva_id & Result == 'Lose') %>% 
               mutate(group = 'March Madness'))
 
 upset_plt <- function(df, x, y, ref_lines, colors) {
-    df %>% 
-        ggplot(aes_string(x=x, y=y, color='group')) +
-        geom_point(stat = 'identity', size=2, show.legend = F) +
-        geom_abline(slope = ref_lines, intercept = 0, linetype='dashed') +
-        theme_classic() +
-        scale_color_manual(values = colors)
+  df %>% 
+    ggplot(aes_string(x=x, y=y, color='group')) +
+    geom_point(stat = 'identity', size=2, show.legend = F) +
+    geom_abline(slope = ref_lines, intercept = 0, linetype='dashed') +
+    scale_color_manual(values = colors) +
+    theme_classic() +
+    theme(panel.grid.major.x = element_line(color = 'grey80'),
+          panel.grid.major.y = element_line(color = 'grey80'),
+          panel.border = element_rect(color = 'black', fill = NA))
 }
 
 make_title <- function(txt) {
   ggdraw() +
-  draw_label(txt, fontface = 'bold', x = 0, hjust = 0) +
-  theme(plot.margin = margin(0, 0, 0, 10))
+    draw_label(txt, fontface = 'bold', x = 0, hjust = 0) +
+    theme(plot.margin = margin(0, 0, 0, 10))
 }
 ```
 
@@ -594,7 +666,8 @@ umbc <-
     geom_histogram(color='black', binwidth = 1, show.legend = F) +
     theme_classic() +
     labs(x='Number of Fouls', y='Games') +
-    scale_fill_manual(values = c('gold', 'black'))
+    scale_fill_manual(values = c('gold', 'black')) +
+  theme(panel.border = element_rect(color = 'black', fill = NA))
 
 uva <-
   df_uva_upset %>% 
@@ -602,7 +675,8 @@ uva <-
     geom_histogram(color='black', binwidth = 1, show.legend = F) +
     theme_classic() +
     labs(x='Number of Fouls', y='Games') +
-    scale_fill_manual(values = c('orange', 'blue'))
+    scale_fill_manual(values = c('orange', 'blue')) +
+  theme(panel.border = element_rect(color = 'black', fill = NA))
 
 plot_grid(
   make_title('Personal Fouls'), plot_grid(umbc, uva), 
