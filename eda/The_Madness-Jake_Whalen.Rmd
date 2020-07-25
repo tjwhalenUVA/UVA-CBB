@@ -7,6 +7,7 @@ output: pdf_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = F,
                       message = F,
+                      wawarning = F,
                       fig.width = 8, fig.height = 4)
 ```
 
@@ -20,6 +21,7 @@ library(janitor)
 library(ggrepel)
 library(flextable)
 library(cowplot)
+library(data.table)
 ```
 
 ```{r helpers, include=FALSE}
@@ -119,73 +121,94 @@ ot_games %>%
 
 Another way to measure the closeness of a game is to look at the difference in the scores during the game.
 The plots below show the Average Score Differential, Final Score Differential and the Maximum Score Differential during games.
-The data used to calculate these measurements was only available for the 2019 season.
-An indication that games are closer in March Madness would be if the histograms below for March Madness were bunched up near the y-axis.
-That would indicate the difference in scores (average, final, and max) were all near zero (tied game).
+An indication that games are closer in March Madness would be if the density curves below for March Madness were bunched up near the y-axis and the regular season curves were to the right.
+That would indicate the difference in scores (average, final, and max) were all near zero (tied game) during March Madness.
 The plots below do not indicate that March Madness games are closer than Regular season games.
 
-```{r In-Game-Scores}
-#This DF is used to tag the games as either regular season or MM
-season_days <-
-    bind_rows(
-        dfs$MRegularSeasonCompactResults %>% 
-            select(Season, DayNum, WTeamID, LTeamID) %>% 
-            mutate(group = 'Regular Season'),
-        dfs$MNCAATourneyCompactResults %>% 
-            select(Season, DayNum, WTeamID, LTeamID) %>% 
-            mutate(group = 'March Madness')
-    ) %>% 
-    filter(Season >= 2015)
+```{r PBP-Data-Clean, include=F}
+#Stack all 5 season PBP DFs together
+pbp_all <- as.data.table(bind_rows(pbp_dfs))
+rm(pbp_dfs)
+gc()
 
-#This vector is used to filter out games involving two non-tournament teams
-tourn_teams_2019 <-
-  dfs$MNCAATourneyCompactResults %>% 
-  filter(Season == 2019) %>% 
-  pivot_longer(cols = c(WTeamID, LTeamID),
-               values_to = 'TeamID', names_to = 'Outcome') %>% 
-  distinct(TeamID) %>% .$TeamID
+#Calculate the running score and final score
+pbp_all %<>% 
+    mutate(WPntAdd = if_else((EventTeamID == WTeamID) & (EventType == 'made1'),
+                              1, 0),
+           WPntAdd = if_else((EventTeamID == WTeamID) & (EventType == 'made2'),
+                              2, WPntAdd),
+           WPntAdd = if_else((EventTeamID == WTeamID) & (EventType == 'made3'),
+                              3, WPntAdd),
+           LPntAdd = if_else((EventTeamID == LTeamID) & (EventType == 'made1'),
+                              1, 0),
+           LPntAdd = if_else((EventTeamID == LTeamID) & (EventType == 'made2'),
+                              2, LPntAdd),
+           LPntAdd = if_else((EventTeamID == LTeamID) & (EventType == 'made3'),
+                              3, LPntAdd)) %>% 
+    group_by(Season, DayNum, WTeamID, LTeamID) %>% 
+    mutate(WCS_Calc = cumsum(WPntAdd),
+           LCS_Calc = cumsum(LPntAdd)) %>% 
+    ungroup() %>% 
+    inner_join(.,
+              bind_rows(dfs$MRegularSeasonCompactResults %>% 
+                            mutate(group = 'Regular Season') %>% 
+                            select(Season, DayNum, WTeamID, LTeamID, group),
+                        dfs$MNCAATourneyCompactResults %>% 
+                            mutate(group = 'March Madness') %>% 
+                            select(Season, DayNum, WTeamID, LTeamID, group)),
+              by = c("Season", "DayNum", "WTeamID", "LTeamID")) %>% 
+    select(-WCurrentScore, -LCurrentScore, -X, -Y, -Area)
 
-pbp_dfs$MEvents2019 %>% 
-  filter(!(WCurrentScore == 0 & LCurrentScore == 0) &
-           (WTeamID %in% tourn_teams_2019 | LTeamID %in% tourn_teams_2019)) %>% 
-  mutate(WminLScoreDiff = WCurrentScore - LCurrentScore,
-         AbsScoreDiff = abs(WCurrentScore - LCurrentScore)) %>% 
-  group_by(Season, DayNum, WTeamID, LTeamID) %>% 
-  summarise('Maximum' = max(AbsScoreDiff, na.rm = T),
-            'Average' = mean(AbsScoreDiff, na.rm = T)) %>% 
-  left_join(., season_days, 
-            by = c('Season', 'DayNum', 'WTeamID', 'LTeamID')) %>%
-  filter(!is.na(group)) %>% 
-  pivot_longer(cols = c('Maximum',
-                        'Average'), 
-               names_to = 'Statistic',
-               values_to = 'Value') %>% 
-  bind_rows(dfs$MNCAATourneyCompactResults %>%
-              filter(Season == 2019 &
-                       (WTeamID %in% tourn_teams_2019 | 
-                          LTeamID %in% tourn_teams_2019)) %>%
-              mutate(Statistic = 'Final',
-                     Value = WScore - LScore,
-                     group = 'March Madness'),
-            dfs$MRegularSeasonCompactResults %>% 
-              filter(Season == 2019 &
-                       (WTeamID %in% tourn_teams_2019 | 
-                          LTeamID %in% tourn_teams_2019)) %>%
-              mutate(Statistic = 'Final',
-                     Value = WScore - LScore,
-                     group = 'Regular Season')) %>% 
-  ggplot(aes(x=Value, fill=group)) +
-  geom_density(alpha=0.5) +
-  facet_grid(~Statistic, scales = 'free') +
-  theme_classic() +
-  labs(y=NULL, x='Score Differential') +
-  theme(legend.title = element_blank(),
-        legend.position = 'bottom',
-        panel.grid.major.x = element_line(color = 'grey75'),
-        panel.border = element_rect(color = 'black', fill = NA),
-        axis.text.y = element_blank(),
-        axis.ticks.y = element_blank()) +
-  scale_x_continuous(breaks = seq())
+#Find out which games the pbp data was accurate enought to get the final score for
+equal_score_games <-
+    pbp_all %>% 
+    group_by(Season, DayNum, WTeamID, LTeamID) %>% 
+    filter((WCS_Calc == max(WCS_Calc)) & (LCS_Calc == max(LCS_Calc)) &
+               (EventType %in% c('made1','made2','made3'))) %>%
+    mutate(EqualScores = if_else((WFinalScore == WCS_Calc) & (LFinalScore == LCS_Calc),
+                                 'Yes', 'No')) %>% 
+    filter(EqualScores == 'Yes') %>% 
+    select(Season, DayNum, WTeamID, LTeamID, EqualScores)
+
+#filter out games with bad pbp data
+pbp_all %<>% 
+    inner_join(., 
+               equal_score_games,
+               by = c("Season", "DayNum", "WTeamID", "LTeamID"))
+
+rm(equal_score_games)
+gc()
+```
+
+```{r In-Game-Scores, fig.height=6}
+pbp_all %>% 
+    mutate(WminLScoreDiff = WCS_Calc - LCS_Calc,
+           AbsScoreDiff = abs(WCS_Calc - LCS_Calc)) %>% 
+    group_by(Season, DayNum, WTeamID, LTeamID, group) %>% 
+    summarise('Maximum' = max(AbsScoreDiff, na.rm = T),
+              'Average' = mean(AbsScoreDiff, na.rm = T)) %>% 
+    filter(!is.na(group)) %>% 
+    pivot_longer(cols = c('Maximum', 'Average'), 
+                 names_to = 'Statistic', values_to = 'Value') %>% 
+    bind_rows(.,
+              bind_rows(dfs$MNCAATourneyCompactResults %>%
+                            mutate(group = 'March Madness'),
+                        dfs$MRegularSeasonCompactResults %>%
+                            mutate(group = 'Regular Season')) %>% 
+                  mutate(Statistic = 'Final',
+                         Value = WScore - LScore) %>% 
+                  filter(Season >= 2015)) %>%
+    ggplot(aes(x=Value, fill=group)) +
+    geom_density(alpha=0.5) +
+    facet_grid(Season~Statistic, scales = 'free') +
+    theme_classic() +
+    labs(y=NULL, x='Score Differential') +
+    theme(legend.title = element_blank(),
+          legend.position = 'bottom',
+          panel.grid.major.x = element_line(color = 'grey75'),
+          panel.border = element_rect(color = 'black', fill = NA),
+          axis.text.y = element_blank(),
+          axis.ticks.y = element_blank())
 ```
 
 After looking at both OT games and game scores it does not seem to be that March Madness has closer games than the regular season.
@@ -196,6 +219,102 @@ This leads to non-stop basketball and up to four games at a time.
 Therefore at any point in time during these games it is likely that one of the games is relatively close and not a blow out.
 
 # Comebacks
+
+A Comeback in sports can be one of the most exhilirating phenomenons to watch.
+If you are a fan of the team coming back you watch with excitement and hope as your team closes the gap.
+If you are a fan of the opposite team you can only watch in horror as your team blows what seemed like an insurmountable lead only minutes ago.
+
+```{r Comeback-Plot}
+#Comebacks----
+#Check that games > 40 min have OT associated with them
+# pbp_all %>% 
+#     group_by(Season, DayNum, WTeamID, LTeamID) %>% 
+#     summarise(TotalTime_min = max(ElapsedSeconds, na.rm = T)/60) %>% 
+#     left_join(.,
+#               bind_rows(dfs$MRegularSeasonCompactResults %>% 
+#                             filter(NumOT > 0) %>% 
+#                             select(Season, DayNum, WTeamID, LTeamID, NumOT),
+#                         dfs$MNCAATourneyCompactResults %>% 
+#                             filter(NumOT > 0) %>% 
+#                             select(Season, DayNum, WTeamID, LTeamID, NumOT),
+#                         dfs$MSecondaryTourneyCompactResults %>% 
+#                             filter(NumOT > 0) %>% 
+#                             select(Season, DayNum, WTeamID, LTeamID, NumOT)),
+#               by = c("Season", "DayNum", "WTeamID", "LTeamID")) %>% 
+#     view(.)
+
+comeback_plot <- function(PointsDown, Title, TimePassed = 0) {
+  games <-
+    pbp_all %>% 
+    group_by(Season, DayNum, WTeamID, LTeamID, group) %>% 
+    summarise(Events = n()) %>%
+    group_by(Season, group) %>% 
+    summarise(Games = n())
+  
+  pbp_all %>% 
+    filter(ElapsedSeconds >= TimePassed*60) %>% 
+    mutate(WinnerLosing = if_else(WCS_Calc < LCS_Calc, 'Yes', 'No'),
+           ScoreDiff = LCS_Calc - WCS_Calc) %>% 
+    group_by(Season, DayNum, WTeamID, LTeamID, group) %>% 
+    summarise(DownBy = max(ScoreDiff)) %>%
+    mutate(Comeback = if_else(DownBy >= PointsDown, 'Yes', 'No')) %>% 
+    group_by(Season, group, Comeback) %>% 
+    count() %>% 
+    pivot_wider(id_cols = c(Season, group), 
+                names_from = Comeback, values_from = n) %>% 
+    left_join(., games, by = c("Season", "group")) %>% 
+    mutate(Pct_CB = Yes / Games) %>% 
+    ggplot(aes(x=Season, y=Pct_CB)) +
+    geom_point(aes(fill=group), color='black', shape=21) +
+    geom_line(aes(color=group)) +
+    scale_y_continuous(labels = scales::percent) +
+    theme_classic() +
+    labs(title=sprintf('%s+ Point Comebacks - %s', PointsDown, Title), 
+         y='% of Games') +
+    theme(legend.title = element_blank(),
+          legend.position = 'bottom',
+          panel.grid.major.x = element_line(color = 'grey75'),
+          panel.border = element_rect(color = 'black', fill = NA))
+}
+```
+
+March Madness is made for comebacks.
+Even when all seems lost, teams continue fighting and scraping to get back in the game one point at a time.
+The plots below show the percentage of games with comebacks by teams down at least 15 points.
+The plot on the left includes comebacks that started at any time during the game.
+The plot on the right only includes comebacks that started in the second half.
+In 2015 & 16 March Madness saw higher rates in these comebacks.
+Since then the tournament has not produced comebacks as frequently.
+The regular season has held steady in both types of comebacks with a spike in the 2019 season.
+
+```{r}
+x <- comeback_plot(PointsDown = 15, Title = 'Whole Game', TimePassed = 0)
+y <- comeback_plot(PointsDown = 15, Title = '2nd Half', TimePassed = 20) 
+
+#Use a single legend
+plot_grid(x + scale_y_continuous(labels = scales::percent, limits = c(0.01, 0.04)),
+          y + 
+              scale_y_continuous(labels = scales::percent, limits = c(0.01, 0.04)) +
+              theme(axis.title.y = element_blank(),
+                    axis.ticks.y = element_blank(),
+                    axis.text.y = element_blank()),
+          ncol = 2, rel_widths = c(1-0.47, 0.47))
+```
+
+The next plot shows the percentage of games where the winner came back from 2 points down in the final three seconds.
+Often times these winning buckets are referred to as "buzzer beaters" since they are taken just in time before the final game buzzer sounds.
+The plot below shows that the regular season typically sees 3-4% of games come down to a "buzzer beater" while March Madness varies from year to year.
+In 2018 6% of the games in March Madness ended with a "buzzer beater" while the previous (2017) and following (2019) years saw a low percentage (<2%) of games ending with a "buzzer beater".
+
+```{r}
+#Down 4 Points - Final Minute
+comeback_plot(PointsDown = 2, Title = 'Final 3 Seconds', TimePassed = 40-3/60)
+```
+
+```{r, include=F}
+rm(pbp_all)
+gc()
+```
 
 # David vs. Goliath
 
