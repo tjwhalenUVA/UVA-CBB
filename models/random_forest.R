@@ -11,11 +11,15 @@ compare <-
     tourney_games %>% 
     mutate(T_1_Win = as.numeric(as.character(T_1_Win)),
            Prediction = ifelse(as.integer(T_1_Seed) <= as.integer(T_2_Seed), 1, 0),
-           Correct = ifelse(T_1_Win == Prediction, 1, 0)) %>% 
-    select(T_1_Win, T_1_Seed, T_2_Seed, Prediction, Correct)
+           Correct = ifelse(T_1_Win == Prediction, 1, 0),
+           Wrong = ifelse(T_1_Win != Prediction, 1, 0)) %>% 
+    select(T_1_Win, T_1_Seed, T_2_Seed, Prediction, Correct, Wrong)
 
 table(compare$T_1_Win, compare$Prediction)
+#Accuracy
 mean(compare$Correct)
+#Error
+mean(compare$Wrong)
 
 
 #Setting up H2o Cluster ----------------------------------------------------------------------
