@@ -1,7 +1,9 @@
 ---
 title: "Madness in March?"
 author: "Jake Whalen"
-output: pdf_document
+output:
+  pdf_document: default
+  word_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -59,32 +61,12 @@ dfs$MTeamConferences %<>%
 
 # Background
 
-The term 'March Madness' wasn't associated with the Mens Division I college basketball tournament until 1982 when Brent Musberger used it during his coverage of the tournament [March Madness History](https://www.ncaa.com/news/basketball-men/article/2020-05-15/march-madness-history-ultimate-guide#:~:text=The%20term%20'March%20Madness'%20was,coverage%20of%20the%201982%20tournament.).
-The term "Madness" refers to the seemingly unpredictable nature of the tournament.
-An example of this madness is in 2018 when the 16 seed University of Maryland Baltimore College (UMBC) upset then number 1 seed University of Virginia (UVA).
-Prior to that game a 1 seed had never lost to a 16 seed which made this upset so unthinkable (and unbearable for us UVA fans).
-This is now considered by many to be one of the biggest upsets in sports history.
-
-So what really gives March it's "Madness".
-Is it the closeness of games at the end and seemingly countless buzzer beaters?
-Is it the miracle comebacks?
-Is it simply David defeating Goliath (seed upsets)?
-The following analysis aims to look at some possible explanations for what really gives March it's "Madness" and debunks others where March is no "Madder" than the rest of the season (Nov-Feb).
+March Madness refers to the Men’s NCAA Division I basketball tournament. The term “Madness” refers to the seemingly unpredictable nature of the tournament. But what makes this tournament any more unpredictable then the previous 20+ games each team played during the regular season. The purpose of this analysis is to identify aspects of the tournament that create ‘Madness’ and to identify any difference between games played during the regular season and the tournament. Is it the closeness of games from tip-off to the final whistle? Is it the countless buzzer beaters in back-to-back games? Is it the miracle comebacks? The following analysis aims to look at these and other possible explanations for what really gives March it’s ‘Madness’.
 
 # Close Games
 
-One of the main assumptions in where March Madness gets it's name is from the amount close games in the tournament.
-A good way to measure how many close games there are overall is to look at the number of games requiring an overtime (OT) period to decide a winner.
-The plot below shows the percent of games that went to OT per season in both the regular season and March Madness Tournament.
-I chose not to focus on the regular season OT data collected prior to the 2000 season.
-As the plot indicates there is a steep uptick in the percent of games requiring OT.
-I attribute this to data collection/preperation error rather than an actual change in how often games go to OT.
-The same can be said about the most recent 2019 seasons data.
-
-The regular season shows less variance in the percent of OT games due to the larger number of games in the annual samples.
-March Madness shows less stability year-to-year in the amount of OT games.
-In 2014 over 10% of the March Madness games required OT while in 2012, 2013 and 2017 less than 2% of the games required OT.
-The plot shows that it is not always the case that games require OT more often in March Madness than in the Regular Season.
+The ‘closeness’ of the games is a good starting point for measuring the ‘Madness’. This first chart shows the percentage of games that went into overtime (OT) by season. The data for the Regular Season prior to the 2000 season looks incorrect. Because of this I have chosen to ignore the data prior to the 2000 season (and the 2019 season) when analyzing this chart.
+The Regular Season hovers around 6% of games going to OT. March Madness fluctuates between 1.5% and 11%. There truly is ‘Madness’ in march but not every year as the graphic shows.
 
 ```{r percent-ot-games}
 ot_games <-
@@ -119,11 +101,7 @@ ot_games %>%
           panel.border = element_rect(color = 'black', fill = NA))
 ```
 
-Another way to measure the closeness of a game is to look at the difference in the scores during the game.
-The plots below show the Average Score Differential, Final Score Differential and the Maximum Score Differential during games.
-An indication that games are closer in March Madness would be if the density curves below for March Madness were bunched up near the y-axis and the regular season curves were to the right.
-That would indicate the difference in scores (average, final, and max) were all near zero (tied game) during March Madness.
-The plots below do not indicate that March Madness games are closer than Regular season games.
+Another way of measuring closeness in a game is to look at the difference in the scores during and at the end of the game. The plots below show the Average, Final and Maximum Score Differentials. The pink curves represent the games played in March Madness and the blue are from the regular season. If March Madness produced closer games you would expect to a greater left-skew in the pink curves. This is not the case and is even opposite in the 2019 Average Score Differential chart (bottom left corner) below. During the regular season the average score differential was closer to zero then during the tournament.
 
 ```{r PBP-Data-Clean, include=F}
 #Stack all 5 season PBP DFs together
@@ -220,9 +198,9 @@ Therefore at any point in time during these games it is likely that one of the g
 
 # Comebacks
 
-A Comeback in sports can be one of the most exhilirating phenomenons to watch.
-If you are a fan of the team coming back you watch with excitement and hope as your team closes the gap.
-If you are a fan of the opposite team you can only watch in horror as your team blows what seemed like an insurmountable lead only minutes ago.
+A comeback in sports can be one of the most exhilarating phenomena to watch. If you are a fan of the team coming back you watch with excitement and hope as your team closes the gap. If you are a fan of the opposite team you can only watch in horror as your team blows what seemed like an insurmountable lead only minutes ago. The data for calculating the comebacks only goes back to the 2015 season therefore the plots below do not go all the way to 1985.
+The plots below show the percentage of games with comebacks by teams down at least 15 points. The plot on the left includes comebacks that started at any time during the game. The plot on the right only includes comebacks that started in the second half. In 2015 & 16 March Madness saw higher rates in 15+ point comebacks. Since then the tournament has not produced comebacks as frequently. The regular season has held steady in both types of comebacks with an uptick in the 2019 season.
+
 
 ```{r Comeback-Plot}
 #Comebacks----
@@ -278,15 +256,6 @@ comeback_plot <- function(PointsDown, Title, TimePassed = 0) {
 }
 ```
 
-March Madness is made for comebacks.
-Even when all seems lost, teams continue fighting and scraping to get back in the game one point at a time.
-The plots below show the percentage of games with comebacks by teams down at least 15 points.
-The plot on the left includes comebacks that started at any time during the game.
-The plot on the right only includes comebacks that started in the second half.
-In 2015 & 16 March Madness saw higher rates in these comebacks.
-Since then the tournament has not produced comebacks as frequently.
-The regular season has held steady in both types of comebacks with a spike in the 2019 season.
-
 ```{r}
 x <- comeback_plot(PointsDown = 15, Title = 'Whole Game', TimePassed = 0)
 y <- comeback_plot(PointsDown = 15, Title = '2nd Half', TimePassed = 20) 
@@ -301,10 +270,7 @@ plot_grid(x + scale_y_continuous(labels = scales::percent, limits = c(0.01, 0.04
           ncol = 2, rel_widths = c(1-0.47, 0.47))
 ```
 
-The next plot shows the percentage of games where the winner came back from 2 points down in the final three seconds.
-Often times these winning buckets are referred to as "buzzer beaters" since they are taken just in time before the final game buzzer sounds.
-The plot below shows that the regular season typically sees 3-4% of games come down to a "buzzer beater" while March Madness varies from year to year.
-In 2018 6% of the games in March Madness ended with a "buzzer beater" while the previous (2017) and following (2019) years saw a low percentage (<2%) of games ending with a "buzzer beater".
+The next plot shows the percentage of games where the winner came back from 2 points down in the final three seconds. Often times these winning buckets are referred to as “buzzer beaters” since they are taken just in time before the final game buzzer sounds. The plot below shows that the regular season typically sees 3-4% of games come down to a “buzzer beater” while March Madness varies from year to year. In 2018 6% of the games in March Madness ended with a “buzzer beater” while the previous (2017) and following (2019) years saw a low percentage (<2%) of games ending with a “buzzer beater”.
 
 ```{r}
 #Down 4 Points - Final Minute
@@ -316,26 +282,23 @@ rm(pbp_all)
 gc()
 ```
 
-# David vs. Goliath
+# Upsets
 
-The graphic below shows the winning percentage among seed match-ups. 
-The seeds denoted on the y-axis are the winners while the seeds across the x-axis are the losers. 
-The diagonal (equal seeded match-ups) were removed from this chart since there was no comparison (1 seed has a 100% win rate against 1 seeds with a 100% losing rate at the same time). 
-A blank indicates the two seeds have never matched up before in the tournament. 
-When viewing this chart it is important to remind yourself that not all of these match-ups are as common as others. 
-For instance a 1 vs 16 and a 8 vs 9 are guaranteed to be played four times every single tournament because those are first round games.
-
-A few quick takeaways from the graphic below: 
+Upsets occur when a lower ranked (seed) team defeats a higher ranked team. One of the greatest upsets of all time occurred in 2018 when 16-seed UMBC defeated 1-seed UVa. This was the first time a 16-seed team had beat a 1-seed. I will dive deep into this upset later on. It’s upsets like these that are so unfathomable that add a certain level of madness to the tournament.
+The heat map below shows the winning percentage among seed match-ups. The seeds denoted on the y-axis are the winners while the seeds across the x-axis are the losers. The diagonal (equal seeded match-ups) were removed from this chart since there was no comparison (1 seeds have a 100%-win rate against 1 seeds with a 100%-lose rate at the same time). A blank indicates the two seeds have never matched up before in the tournament. When viewing this heat map it is important to remind yourself that not all of these match-ups are as common as others. For instance, a 1 vs 16 and an 8 vs 9 are guaranteed to be played four times every single year. Similarly, a 16-seed has only made it past the first round once and subsequently lost to the 9-seed in the 2nd round. Therefore, in the graphic it shows 9-seeds as having a 100%-win rate against 16-seeds.
+A few quick takeaways from the graphic below:
 
 * 1 Seeds:
     + Have lost to a 16 only one time in the history of the tournament.
-    + As expected, have a greater than 50% winning percentage against all other seeds.
-    + Have never faced a 14 or 15 seed due to these lower seeds never advancing far enough (Elite 8).
-    + Struggle with the 11 seeds, only posting a 57% winning percentage.
+    + As expected, have a greater than 50%-win rate against all other seeds.
+    + Have never faced a 14 or 15 seed due to these lower seeds never advancing far enough (would only meet in the Elite 8).
+    + Struggle with the 11 seeds, only posting a 57% (4 out of 7) winning percentage.
 * Being a 2 seed doesn't look as good as it sounds.
-    + 0 wins over 5 and 9 seeds.
-    + An abysmal 29% winning percentage over 8 seeds.
-* In recent memory the 5 vs 12 is a common upset pick in many brackets however the 12 seed only holds a 36% winning percentage in this match-up.
+    + Below 50% winning percentage (5 out of 14) against 4 and 8 seeds.
+    + An abysmal 29% winning percentage against 8 seeds.
+* In recent memory the 5 vs 12 is a common upset pick which is supported by the 12 seeds holding a 36% (50 out of 140) winning percentage.
+
+Overall, it is apparent that upsets play a major factor in providing some ‘Madness’ to the tournament. Six of the twelve seeds that have played a lower seed in the tournament hold a 50% or less win rate against that lower seed (i.e. 2 seeds win rate against an 8 seed is 29%).
 
 ```{r seed_v_seed_map, fig.height=6}
 df.seed.results <-
@@ -387,7 +350,7 @@ df.wvl.seed %>%
     labs(x = 'Losing Team Seed', y = 'Winning Team Seed')
 ```
 
-# Team Performance
+<!-- # Team Performance -->
 
 ```{r combine-data}
 combined <- function(df){
@@ -449,7 +412,11 @@ bind_rows(reg_szn %>% mutate(group = 'Regular Season'),
     labs(title='Auxiliary Plays')
 ```
 
-```{r percent-change-rsVmm}
+<!-- Part of making a run to the championship in March Madness is performing at or above your season average. -->
+<!-- Many analysts like to pick the teams that are "hot" going into march, meaning they are playing their best basketball of the year. -->
+<!-- The table below compares performances between winners and losers in the regular season and March Madness. -->
+
+```{r percent-change-rsVmm, include=F}
 typology <- data.frame(
   col_keys = c('Stat Group', 'Metric', 
                'March Madness Lose', 'Regular Season Lose', 'Change Lose',
@@ -492,12 +459,16 @@ per_chg_rsVmm <-
   colformat_num(c(3,4,6,7)) %>% 
   align(j=2, align = 'center') %>% 
   align(j=c(5,8), align = 'right') %>% 
-  align(align = 'center', part = 'header')
+  align(align = 'center', part = 'header') %>% 
+  bg(i = c(5:7), j = c(5), bg="red") %>% 
+  bg(i = c(10, 13), j = c(5), bg="green") %>% 
+  bg(i = c(3:4, 7, 11), j = c(8), bg="red") %>% 
+  bg(i = c(10), j = c(8), bg="green")
 
 knitr::knit_print(per_chg_rsVmm)
 ```
 
-```{r percent-change-winVlose}
+```{r percent-change-winVlose, include=F}
 typology <- data.frame(
     col_keys = c('Stat Group', 'Metric',
                  'Win Regular Season', 'Lose Regular Season', 'Change Regular Season',
@@ -539,17 +510,16 @@ per_chg_winVlose <-
     colformat_num(c(3,4,6,7)) %>% 
     align(j=2, align = 'center') %>% 
     align(j=c(5,8), align = 'right') %>% 
-    align(align = 'center', part = 'header')
+    align(align = 'center', part = 'header') %>% 
+    bg(i = c(4:6, 12), j = c(2:8), bg="lightblue")
 
 knitr::knit_print(per_chg_winVlose)
 ```
 
 # UMBC vs UVa Upset
 
-On March 16, 2018 UMBC pulled off the greatest March Madness upset of all time.
-UMBC defeated UVa 74 to 54 and became the first ever sixteen seed to beat a one seed.
-An upset of this magnitude is exactly what inspires the term "Madness".
-The rest of this section examines what went right (for UMBC) and wrong (for UVa) in this game.
+On March 16, 2018 UMBC pulled off the greatest March Madness upset of all time. UMBC defeated UVa 74 to 54 and became the first ever 16 seed to beat a 1 seed. An upset of this magnitude is exactly what inspires the term “Madness”. The rest of this section examines what went right (for UMBC) and wrong (for UVa) in the game.
+The plots in this section are all setup with a similar pattern. UMBC on the left and UVa on the right. The black (UMBC) and blue (UVa) points represent the teams regular season game results. The yellow (UMBC) and orange (UVa) points represent the upset game.
 
 ```{r}
 umbc_id <- 1420
@@ -590,16 +560,7 @@ make_title <- function(txt) {
 }
 ```
 
-The plots in this section are all setup with a similar pattern.
-UMBC on the left and UVa on the right.
-The black (UMBC) and blue (UVa) points represent the teams regular season game results.
-The yellow (UMBC) and orange (UVa) points represent the upset game.
-
-The first plot compares the teams field goals.
-The field goals metric includes all shot attempts/makes from both 2-pt and 3-pt range.
-The reference lines (dashed lines) indicate shooting percentages from 100% to 25% in 25% increments (top to bottom line).
-The regular season points for UVa are tightly clustered indicating a more consistent offensive performance.
-The upset games show UMBC having one of it's best shooting performances of the year and UVa having one of its poorer performances.
+The first plot compares the teams field goals. The field goals metric includes all shot attempts/makes from both 2-pt and 3-pt range. The reference lines (dashed) indicate shooting percentages from 100% to 25%, left to right, in 25% increments. The regular season points for UVa are tightly clustered indicating a more consistent field goal shooting performance. The upset games show UMBC having one of their best shooting performances of the year and UVa having one of its poorer performances.
 
 ```{r FGA-FGM}
 plot_row <-
@@ -622,14 +583,7 @@ plot_grid(
 )
 ```
 
-The 3-pt shooting numbers show a similar pattern of consistency in UVa's performance.
-UVa typically took between 10 to 30 three pointers in a game and made 25% to 50% of them.
-UMBC on the other hand was more inconsistent in their 3-pt shooting.
-Their attempts ranged from 10 to 40+ and they made anywhere from 10% to 60%+ of their shots.
-Focusing on the upset game it is clear that 3-pt shooting was a problem for UVa and strength for UMBC that day.
-UVa shot it's worst 3-pt % of the season (18%) and scored only 12 points from beyond the arc.
-UMBC matched its 3rd highest 3-pt % of the season (50%) and totaled 36 points from beyond the arc.
-The number of attempts differed by 2 with UMBC attempting 24 and UVa 22.
+The 3-pt shooting numbers show a similar pattern of consistency in UVa’s performance. UVa typically took between 10 to 30 three pointers in a game and made 25% to 50% of them. UMBC on the other hand was more inconsistent in their 3-pt shooting. Their attempts ranged from 10 to 40+ and they made anywhere from 10% to 60%+ of their shots. Focusing on the upset game it is clear that 3-pt shooting was a problem for UVa and strength for UMBC. UVa shot their worst 3-pt % of the season (18%) and scored only 12 points from beyond the arc, despite shooting more than 20 shots. UMBC matched its 3rd highest 3-pt % of the season (50%) and totaled 36 points from beyond the arc. The number of attempts differed by 2 with UMBC attempting 24 and UVa 22.
 
 ```{r FGA3-FGM3}
 plot_row <-
@@ -652,13 +606,7 @@ plot_grid(
 )
 ```
 
-The free throw attempt (FTA)/make(FTM) rates aided in the making of an upset.
-It is not to say that the game was called unfairly by the refs.
-A higher number of FTA stems from either undisciplined defense, dumb/unnecessary fouls by defenders, or aggressive offense, drawing contact on drives to the hoop and not settling for jump shots.
-In the upset game UVa failed to get to the line only generating 8 FTA.
-When they got them they also failed to convert, shooting 50% on their FTA.
-UMBC did slightly better getting to the line with 14 FTA in the game.
-They converted on 10 of those attempts (71%).
+The free throw attempt (FTA)/make (FTM) rates aided in the making of an upset. It is not to say that the game was called unfairly by the refs. A higher number of FTA stems from either undisciplined defense, dumb/unnecessary fouls by defenders, or aggressive offense, drawing contact on drives to the hoop and not settling for jump shots. In the upset game UVa failed to get to the line only generating 8 FTA. When UVa got attempts they failed to convert, shooting 50% on their FTA. UMBC did slightly better getting to the line with 14 FTA in the game. They converted on 10 of those attempts (71%).
 
 ```{r FTA-FTM}
 plot_row <-
@@ -681,13 +629,7 @@ plot_grid(
 )
 ```
 
-The rebounding plots below may look as though UVa was out hustled based on the disparity in defensive rebound (DR) numbers, but the number of DR possible must be taken into account.
-UVa collected 17 out of a possible 22 rebounds (77%).
-UMBC collected 29 out of a possible 33 rebounds (88%).
-While this disparity in DR percentage may not seem like much it is important to note the make up of the teams.
-UVa's lineup was larger at every position then UMBC.
-Therefore UVa should have dominated the rebounding match up.
-As the plots show, UMBC was able to out-hustle UVa and neutralize that size advantage.
+The rebounding plots below may look as though UVa was out hustled based on the disparity in defensive rebound (DR) numbers, but the number of DR possible must be taken into account. UVa collected 17 out of a possible 22 rebounds (77%). UMBC collected 29 out of a possible 33 rebounds (88%). While this disparity in DR percentage may not seem like much it is important to note the size of the teams. UVa’s lineup was larger at every position then UMBC. UVa should have dominated the rebounding match up based on size alone. As the plots show, UMBC was able to out-hustle UVa and neutralize that size advantage.
 
 ```{r OR-DR}
 plot_row <-
@@ -710,18 +652,7 @@ plot_grid(
 )
 ```
 
-The Turnover to Assist ratio is often a cited metric for describing a teams composure and ball control.
-It shows whether a team was able to maintain control and make smart plays or if they were playing wild and making costly mistakes.
-Points towards the top left corner of the graph indicate teams playing with more composure (more assists and fewer turnovers).
-The dashed reference lines indicate, from bottom to top) a 1-1, 2-1 and 3-1 Ast to TO ration.
-The higher the first value in the ratio the better.
-The charts show both UVa and UMBC with a scattering of Ast-TO ratios during the regular season.
-UVa frequently exceeded a 2-1 Ast-TO ratio throughout the season.
-They had come to be know as a team that did not give their opponents many extra possessions.
-UMBC hovered between 2-1 and 1-1 Ast-TO for most of the regular season and even ended up in that range during the upset game.
-In the upset game UVa wound up below the 1-1 Ast-TO line.
-It was not due to an uncharacteristically high number of TOs but rather a extreme lack of Ast.
-UVa totaled it's fewest Ast in a game during the upset.
+The Turnover (TO) to Assist (Ast) ratio is often a cited metric for describing a team’s composure and ball control. It shows whether a team was able to maintain control and make smart plays or if they were playing wild and making costly mistakes. Points towards the top left corner of the graph indicate teams playing with more composure (more Ast and fewer TO). The reference lines indicate, from bottom to top, a 1-1, 2-1 and 3-1 Ast to TO ratio. The plots show both UVa and UMBC with a scattering of Ast-TO ratios during the regular season. UVa frequently exceeded a 2-1 Ast-TO ratio throughout the season. They had come to be known as a team that did not give their opponents many extra possessions. UMBC hovered between 2-1 and 1-1 Ast-TO for most of the regular season and even ended up in that range during the upset game. In the upset game UVa wound up below the 1-1 Ast-TO line. It was not due to an uncharacteristically high number of TOs but rather an extreme lack of Ast. UVa totaled it’s fewest Ast in a game during the upset.
 
 ```{r TO-Ast}
 plot_row <-
@@ -744,12 +675,7 @@ plot_grid(
 )
 ```
 
-The next plot shows two additional common stats referenced in a game, blocks (Blk) and steals (Stl).
-The low number of blocks by UVa reinforces the previous point that UMBC somehow neutralized UVas size advantage.
-Somehow, despite the size advantage, UVa managed to record only one block after averaging 3.7 a game during the regular season.
-UVa did manage to pressure UMBC enough to generate eight steals, but likewise failed to convert on the other end connecting on their shots.
-UMBC did not do well generating steals and/or blocks.
-They matched their lowest number of blocks (0) for the season and set their lowest number of steals (2).
+The next plot shows two additional common stats referenced in a game, blocks (Blk) and steals (Stl). Despite the size advantage discussed earlier, UVa managed only one block after averaging 3.7 a game during the regular season. UVa did manage to pressure UMBC enough to generate eight steals. UMBC did not do well generating steals and/or blocks. They matched their lowest number of blocks (0) for the season and set their lowest number of steals (2).
 
 ```{r Blk-Stl}
 plot_row <-
@@ -772,11 +698,7 @@ plot_grid(
 )
 ```
 
-The last plot to investigate the upset shows the number of personal fouls committed by each team.
-This plot gives similar information as the FTA/FTM plot however the FTA/FTM values are also dependent on what type of foul was committed (and-one/continuation) and where the shooter was (inside or outside 3-pt arc).
-The personal foul plot simply shows how well a team did at avoiding fouls and giving the other team FT opportunities.
-UMBC managed to play one of their cleanest games of the season committing 13 fouls.
-UVa didn't have an outlier of a game by committing an absurd number of fouls but they did surpass their average (14.1) personal fouls a game.
+The last plot shows the number of personal fouls committed by each team. This plot gives similar information as the FTA/FTM plot, however, the FTA/FTM values are also dependent on what type of foul was committed (and-one/continuation) and where the shooter was (inside or outside 3-pt arc). The personal foul plot simply shows how well a team did at avoiding fouls. UMBC managed to play one of their cleanest games of the season committing only 13 fouls. UVa did not have an outlier of a game by committing a high number of fouls but they did surpass their average (14.1) personal fouls a game.
 
 ```{r personal-fouls}
 umbc <-
@@ -803,12 +725,6 @@ plot_grid(
 )
 ```
 
-In order for this historical upset to occur a few things had to happen and the plots above show that.
-First, UVa had to play at or below their average.
-They did so by failing to connect on their 3-pt attempts, inability to get to the line and make free throws, lack of team ball (assists), and failure to utilize their size advantage.
-UMBC on the other hand had to play at or above their average performance level.
-They did not make unnecessary mistakes and distributed the ball well (TO-Ast), they capitalized on their free throws, they limited their fouls, and they shot lights out from the field and beyond the 3-pt arc.
-Due to both of these teams playing at the levels they did a one seed finally lost to a sixteen.
-This unthinkable combination of events is what fuels the madness of March.
+In order for this historical upset to occur a few things had to happen and the plots above show that. First, UVa had to play at or below their average. They did so by failing to connect on their 3-pt attempts, inability to get to the line and make free throws, lack of team ball (assists), and failure to utilize their size advantage. UMBC on the other hand had to play at or above their average performance level. They did not make unnecessary mistakes and distributed the ball well (TO-Ast), they capitalized on their free throws, they limited their fouls, and they shot lights out from the field and beyond the 3-pt arc. Due to both of these teams playing at the levels they did a one seed finally lost to a sixteen. This unthinkable combination of events is what fuels the madness of March.
 
-# Predicting Winners
+<!-- # Predicting Winners -->
